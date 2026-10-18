@@ -1,0 +1,117 @@
+## Tarea 2. Ubicación del grupo en la distribución nacional del ingreso
+
+Supuestos de la Tarea 0: `base22`/`base24` ya tienen `decil` (ntiles.wtd sobre `ictpc`
+deflactado, todos los hogares, ponderado por `factor`), `ictpc` y `g65`; diseños
+`d22`/`d24` (con convey_prep) y subpoblaciones `g22`/`g24` (`subset(d, p65mas > 0)`).
+
+```{r}
+#| label: t2-control
+# Control: cada decil nacional debe concentrar ~10% de los hogares.
+# Si hay empates (p. ej. muchos ictpc = 0) los deciles bajos se desbalancean.
+round(100 * coef(svymean(~factor(decil), d24)), 2)
+round(100 * coef(svymean(~factor(decil), d22)), 2)
+```
+
+```{r}
+#| label: t2-calculo
+precision <- function(cv) case_when(cv < 15 ~ "Alta", cv < 30 ~ "Moderada", TRUE ~ "Baja")
+z <- qnorm(.975)
+fuente <- "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI."
+
+# Por decil nacional: límite superior, % del grupo en el decil y % del decil que es del grupo
+ubica <- function(b, d, g, anio) {
+  dist <- svymean(~factor(decil), g)        # distribución del grupo (referencia: 10%)
+  comp <- svyby(~g65, ~decil, d, svymean)   # composición del decil (referencia: % nacional)
+  b %>% group_by(decil) %>% summarise(lim_sup = max(ictpc)) %>%
+    mutate(anio = anio,
+           p_g = 100 * coef(dist), se_g = 100 * SE(dist),
+           p_d = 100 * coef(comp), se_d = 100 * SE(comp),
+           cv_g = 100 * se_g / p_g, cv_d = 100 * se_d / p_d,
+           prec_g = precision(cv_g), prec_d = precision(cv_d))
+}
+
+# Resumen: % del grupo en deciles I–III y VIII–X, y % de hogares del país en el grupo
+resume <- function(d, g, anio) {
+  r <- svymean(~I(100 * (decil <= 3)) + I(100 * (decil >= 8)), g)
+  n <- svymean(~I(100 * g65), d)
+  data.frame(anio, indicador = c("Grupo en deciles I–III", "Grupo en deciles VIII–X",
+                                 "Hogares del país con 65+"),
+             pct = c(coef(r), coef(n)), se = c(SE(r), SE(n))) %>%
+    mutate(li = pct - z * se, ls = pct + z * se, cv = 100 * se / pct, precision = precision(cv))
+}
+
+t2     <- bind_rows(ubica(base22, d22, g22, "2022"), ubica(base24, d24, g24, "2024"))
+t2_res <- bind_rows(resume(d22, g22, "2022"), resume(d24, g24, "2024"))
+```
+
+```{r}
+#| label: t2-cuadros
+tab_t2 <- function(a, n) t2 %>% filter(anio == a) %>%
+  transmute(decil = as.character(as.roman(decil)), lim_sup, p_g,
+            ic = sprintf("%.1f – %.1f", p_g - z * se_g, p_g + z * se_g),
+            cv_g, prec_g, p_d, cv_d, prec_d) %>%
+  flextable() %>% theme_vanilla() %>%
+  set_header_labels(decil = "Decil", lim_sup = "Límite sup. ictpc",
+                    p_g = "% del grupo", ic = "IC 95%", cv_g = "CV (%)", prec_g = "Precisión",
+                    p_d = "% del decil con 65+", cv_d = "CV (%)", prec_d = "Precisión") %>%
+  colformat_double(j = "lim_sup", digits = 0, big.mark = ",") %>%
+  colformat_double(j = c("p_g", "cv_g", "p_d", "cv_d"), digits = 1) %>%
+  set_caption(paste0("Cuadro 2.", n, ". Hogares con al menos una persona de 65+ por decil nacional de ingreso, ", a)) %>%
+  add_footer_lines(c("Deciles de hogares por ingreso corriente per cápita (trimestral, deflactado), después de transferencias.",
+                     "Precisión según CV: alta < 15, moderada 15–30, baja ≥ 30.", fuente)) %>%
+  fontsize(size = 9, part = "footer") %>% autofit()
+
+tab_t2("2024", 1)
+```
+
+```{r}
+#| label: t2-cuadro-2022
+tab_t2("2022", 2)
+```
+
+```{r}
+#| label: t2-cuadro-resumen
+t2_res %>% flextable() %>% theme_vanilla() %>%
+  set_header_labels(anio = "Año", indicador = "Indicador", pct = "%", se = "EE",
+                    li = "LI 95%", ls = "LS 95%", cv = "CV (%)", precision = "Precisión") %>%
+  colformat_double(digits = 1) %>%
+  set_caption("Cuadro 2.3. Concentración del grupo en los extremos de la distribución") %>%
+  add_footer_lines(fuente) %>% fontsize(size = 9, part = "footer") %>% autofit()
+```
+
+```{r}
+#| label: t2-grafica-distribucion
+pal <- c("2022" = "grey60", "2024" = "#9b2247")
+tema <- theme_classic() + theme(legend.position = "top", plot.caption.position = "plot",
+                                plot.caption = element_text(hjust = 0))
+dodge <- position_dodge(.8)
+
+g_t2a <- ggplot(t2, aes(factor(decil), p_g, fill = anio)) +
+  geom_col(position = dodge, width = .75) +
+  geom_errorbar(aes(ymin = p_g - z * se_g, ymax = p_g + z * se_g), position = dodge, width = .2) +
+  geom_hline(yintercept = 10, linetype = "dashed") +
+  scale_fill_manual(values = pal) + scale_x_discrete(labels = as.roman(1:10)) +
+  labs(title = "Gráfica 2.1. Distribución de los hogares con 65+ por decil nacional",
+       subtitle = "Línea punteada: 10% (sin relación entre grupo y decil). Barras: IC 95%",
+       x = "Decil nacional de ingreso corriente per cápita", y = "% de los hogares del grupo",
+       fill = NULL, caption = fuente) + tema
+g_t2a
+```
+
+```{r}
+#| label: t2-grafica-composicion
+g_t2b <- ggplot(t2, aes(factor(decil), p_d, fill = anio)) +
+  geom_col(position = dodge, width = .75) +
+  geom_errorbar(aes(ymin = p_d - z * se_d, ymax = p_d + z * se_d), position = dodge, width = .2) +
+  geom_hline(data = filter(t2_res, indicador == "Hogares del país con 65+"),
+             aes(yintercept = pct, color = anio), linetype = "dashed", show.legend = FALSE) +
+  scale_fill_manual(values = pal) + scale_color_manual(values = pal) +
+  scale_x_discrete(labels = as.roman(1:10)) +
+  labs(title = "Gráfica 2.2. Peso de los hogares con 65+ dentro de cada decil nacional",
+       subtitle = "Líneas punteadas: % nacional de hogares con 65+ en cada año. Barras: IC 95%",
+       x = "Decil nacional de ingreso corriente per cápita", y = "% de hogares del decil con 65+",
+       fill = NULL, caption = fuente) + tema
+g_t2b
+
+saveRDS(list(t2 = t2, t2_res = t2_res, g_t2a = g_t2a, g_t2b = g_t2b), "t2_ubicacion.rds")
+```

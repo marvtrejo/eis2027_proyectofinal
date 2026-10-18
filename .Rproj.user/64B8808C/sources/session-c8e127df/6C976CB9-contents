@@ -1,0 +1,122 @@
+# Tarea 4: Gini, Theil y curva de Lorenz
+
+## Cálculo
+
+```{r}
+#| label: t4-funciones
+# Desigualdad de una variable de ingreso en un (sub)diseño.
+# Gini: todos los hogares del dominio. Theil T (GE(1)): solo hogares con ingreso > 0.
+# El argumento v permite reutilizar la función en la Tarea 6 (ing_sin_bene, ing_sin_jub, ing_sin_trans).
+desig <- function(d, v = "ing_cor") {
+  f   <- reformulate(v)
+  y   <- d$variables[[v]]
+  gi  <- svygini(f, d)
+  th  <- svygei(f, subset(d, y > 0), epsilon = 1)
+  data.frame(ind  = c("Gini", "Theil T"),
+             est  = c(coef(gi), coef(th)),
+             se   = as.numeric(c(SE(gi), SE(th))),
+             excl = c(NA, sum(weights(d) > 0 & y <= 0))) %>%   # hogares en muestra fuera del Theil
+    mutate(cv = 100 * se / est, prec = precision(cv), .after = se)
+}
+
+# Dominios del diseño (subset sobre el diseño, nunca sobre la base)
+dominios <- function(d) list(Nacional          = d,
+                             Resto             = subset(d, g65 == 0),
+                             `Hogares con 65+` = subset(d, g65 == 1))
+disenios <- list(`2022` = d22, `2024` = d24)
+
+# Formato largo: lo reutiliza la Tarea 5 (est y se por año)
+cuadro5_df <- lapply(disenios, function(d) bind_rows(lapply(dominios(d), desig), .id = "pob")) %>%
+  bind_rows(.id = "anio")
+```
+
+```{r}
+#| label: t4-cotejo
+# Cotejo del punto estimado nacional con dineq (sin diseño): deben coincidir en los primeros decimales
+cotejo <- cuadro5_df %>%
+  filter(pob == "Nacional", ind == "Gini") %>%
+  select(anio, est) %>%
+  mutate(dineq = sapply(list(base22, base24), function(b) gini.wtd(b$ing_cor, b$factor)),
+         dif   = est - dineq)
+cotejo
+```
+
+## Cuadro 5
+
+```{r}
+#| label: t4-cuadro5
+cuadro5_w <- cuadro5_df %>%
+  pivot_wider(names_from = anio, values_from = c(est, se, cv, prec, excl), names_vary = "slowest")
+
+cuadro5 <- flextable(cuadro5_w) %>%
+  set_header_labels(values = c(pob = "Hogares", ind = "Indicador", setNames(
+    rep(c("Estimación", "EE", "CV (%)", "Precisión", "Excluidos (n)"), 2), names(cuadro5_w)[-(1:2)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), colwidths = c(2, 5, 5)) %>%
+  merge_v(j = "pob") %>%
+  theme_vanilla() %>%
+  colformat_double(digits = 4) %>%
+  colformat_double(j = c("cv_2022", "cv_2024"), digits = 2) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  set_caption("Cuadro 5. Coeficiente de Gini e índice de Theil T del ingreso corriente del hogar, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Nota: ingreso corriente total trimestral del hogar, sin ajuste por tamaño. Cada indicador mide la desigualdad dentro de su dominio. Gini con todos los hogares; Theil T solo con hogares de ingreso > 0 (Excluidos = hogares en muestra con ingreso 0). EE por linealización con el diseño muestral (convey). Precisión según criterio INEGI: alta CV < 15, moderada 15 ≤ CV < 30, baja CV ≥ 30.",
+    "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.")) %>%
+  fontsize(size = 9, part = "footer") %>%
+  autofit()
+cuadro5
+```
+
+## Gráfica 1: Gini y Theil con IC 95%
+
+```{r}
+#| label: t4-grafica1
+z <- qnorm(.975)
+
+grafica1 <- ggplot(cuadro5_df, aes(pob, est, colour = anio)) +
+  geom_pointrange(aes(ymin = est - z * se, ymax = est + z * se), position = position_dodge(.4)) +
+  facet_wrap(~ind, scales = "free_y") +
+  scale_colour_manual(values = c(`2022` = "grey60", `2024` = "#9b2247")) +
+  labs(title = "Gráfica 1. Gini y Theil T del ingreso corriente del hogar por dominio, 2022 y 2024",
+       x = NULL, y = "Estimación", colour = "Año",
+       caption = paste("Nota: barras = IC 95%. Que los intervalos no se traslapen no equivale a una prueba de diferencia (ver Tarea 5).",
+                       "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.", sep = "\n")) +
+  theme_classic() +
+  theme(legend.position = "bottom", plot.caption.position = "plot", plot.caption = element_text(hjust = 0))
+grafica1
+```
+
+## Gráfica 2: curva de Lorenz
+
+```{r}
+#| label: t4-lorenz
+p <- seq(0, 1, .1)
+
+lorenz <- function(d) {
+  l <- svylorenz(~ing_cor, d, quantiles = p, plot = FALSE)
+  stopifnot(length(coef(l)) == length(p))      # avisa si la versión de convey cambia la salida
+  data.frame(p, L = as.numeric(coef(l)), se = as.numeric(SE(l)))
+}
+
+lorenz_df <- lapply(disenios, function(d) bind_rows(lapply(dominios(d)[-1], lorenz), .id = "pob")) %>%
+  bind_rows(.id = "anio") %>%
+  mutate(li = L - z * se, ls = L + z * se)
+
+grafica2 <- ggplot(lorenz_df, aes(p, L, colour = pob, fill = pob)) +
+  geom_abline(slope = 1, linetype = "dashed", colour = "grey40") +
+  geom_ribbon(aes(ymin = li, ymax = ls), alpha = .2, colour = NA) +
+  geom_line() + geom_point(size = 1) +
+  facet_wrap(~anio) +
+  scale_colour_manual(values = c(Resto = "grey60", `Hogares con 65+` = "#9b2247"),
+                      aesthetics = c("colour", "fill")) +
+  labs(title = "Gráfica 2. Curva de Lorenz del ingreso corriente del hogar,\nhogares con 65+ y resto, 2022 y 2024",
+       x = "Proporción acumulada de hogares", y = "Proporción acumulada del ingreso",
+       colour = NULL, fill = NULL,
+       caption = paste("Nota: bandas = IC 95%. Hogares ordenados por ingreso corriente total dentro de cada dominio.",
+                       "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.", sep = "\n")) +
+  theme_classic() +
+  theme(legend.position = "bottom", plot.caption.position = "plot", plot.caption = element_text(hjust = 0))
+grafica2
+
+saveRDS(list(cuadro5 = cuadro5_df, lorenz = lorenz_df, cotejo = cotejo,
+             grafica1 = grafica1, grafica2 = grafica2), "salidas/t4_resultados.rds")
+```

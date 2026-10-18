@@ -1,0 +1,274 @@
+---
+title: "Tarea 1"
+---
+
+# Tarea 1: tamaño del grupo
+## Tamaño del grupo
+```{r}
+#| label: t1-tamano
+
+# Variable auxiliar para conteo
+d22 <- update(d22, uno = 1)
+d24 <- update(d24, uno = 1)
+
+# Tamaño expandido (por año)
+tam_exp_22 <- svyby(~uno, ~g65, d22, svytotal, vartype = c("se", "cv"))
+tam_exp_24 <- svyby(~uno, ~g65, d24, svytotal, vartype = c("se", "cv"))
+
+# Tamaño muestral (n)
+n_obs_22 <- svyby(~uno, ~g65, d22, unwtd.count)
+n_obs_24 <- svyby(~uno, ~g65, d24, unwtd.count)
+
+# % del país en el grupo y su CV
+prop_22 <- svymean(~g65, d22)
+cv_prop_22 <- cv(prop_22) * 100
+
+prop_24 <- svymean(~g65, d24)
+cv_prop_24 <- cv(prop_24) * 100
+
+# Verificación de suma de factores
+stopifnot(abs(sum(base22$factor) - sum(tam_exp_22$uno)) < 1e-4)
+stopifnot(abs(sum(base24$factor) - sum(tam_exp_24$uno)) < 1e-4)
+```
+
+## Medias de ingresos, transferencias y coberturas por grupo
+
+```{r}
+#| label: t1-medias
+
+vars_t1 <- ~ing_cor + transfer + jubilacion + bene_gob + recibe_jub + recibe_bene + tot_integ + p65mas
+
+# Una sola llamada por año
+medias_22 <- svyby(vars_t1, ~g65, d22, svymean, vartype = c("se", "cv"))
+medias_24 <- svyby(vars_t1, ~g65, d24, svymean, vartype = c("se", "cv"))
+
+# Verificar estructura de nombres
+names(as.data.frame(medias_22))
+```
+
+## Prueba de hipótesis para el tamaño del hogar
+
+```{r}
+#| label: t1-prueba
+
+# Prueba t para 2022 y 2024
+ttest_22 <- svyttest(tot_integ ~ g65, d22)
+ttest_24 <- svyttest(tot_integ ~ g65, d24)
+
+# Guardar resultados para la nota al pie del Cuadro 2
+res_ttest_22 <- list(
+  dif = as.numeric(ttest_22$estimate),
+  ic  = confint(ttest_22),
+  p   = ttest_22$p.value
+)
+
+res_ttest_24 <- list(
+  dif = as.numeric(ttest_24$estimate),
+  ic  = confint(ttest_24),
+  p   = ttest_24$p.value
+)
+```
+
+## Función
+
+```{r}
+#| label: t1-funcion
+
+# Función estandarizada para la Tarea 1
+t1 <- function(d) {
+  d <- update(d, uno = 1)
+  
+  # 1. Tamaños
+  tot_exp <- svyby(~uno, ~g65, d, svytotal, vartype = c("se", "cv"))
+  n_obs   <- svyby(~uno, ~g65, d, unwtd.count)
+  
+  # Verificación
+  stopifnot(abs(sum(weights(d)) - sum(tot_exp$uno)) < 1e-4)
+  
+  # 2. Medias y Coberturas
+  vars_t1 <- ~ing_cor + transfer + jubilacion + bene_gob + recibe_jub + recibe_bene + tot_integ + p65mas
+  med <- svyby(vars_t1, ~g65, d, svymean, vartype = c("se", "cv"))
+  
+  # 3. Prueba t
+  ttest <- svyttest(tot_integ ~ g65, d)
+  
+  # Estructurar Data Frame
+  # Resto (g65 = 0)
+  df_resto <- tibble(
+    indicador  = c("Hogares expandidos", "Muestra (n)", "Ingreso corriente medio", 
+                   "Transferencias medias", "Jubilaciones medias", "Programas gob. medios",
+                   "Cobertura jubilación (%)", "Cobertura prog. gob (%)", 
+                   "Integrantes del hogar", "Personas 65+ por hogar"),
+    est_resto  = c(tot_exp$uno[1], n_obs[[2]][1], med$ing_cor[1], med$transfer[1],
+                   med$jubilacion[1], med$bene_gob[1], med$recibe_jub[1] * 100, 
+                   med$recibe_bene[1] * 100, med$tot_integ[1], NA),
+    se_resto   = c(tot_exp$se[1], NA, med$se.ing_cor[1], med$se.transfer[1],
+                   med$se.jubilacion[1], med$se.bene_gob[1], med$se.recibe_jub[1] * 100, 
+                   med$se.recibe_bene[1] * 100, med$se.tot_integ[1], NA),
+    cv_resto   = c(tot_exp$cv[1] * 100, NA, med$cv.ing_cor[1] * 100, med$cv.transfer[1] * 100,
+                   med$cv.jubilacion[1] * 100, med$cv.bene_gob[1] * 100, med$cv.recibe_jub[1] * 100, 
+                   med$cv.recibe_bene[1] * 100, med$cv.tot_integ[1] * 100, NA)
+  )
+  
+  # Grupo (g65 = 1)
+  df_grupo <- tibble(
+    est_grupo  = c(tot_exp$uno[2], n_obs[[2]][2], med$ing_cor[2], med$transfer[2],
+                   med$jubilacion[2], med$bene_gob[2], med$recibe_jub[2] * 100, 
+                   med$recibe_bene[2] * 100, med$tot_integ[2], med$p65mas[2]),
+    se_grupo   = c(tot_exp$se[2], NA, med$se.ing_cor[2], med$se.transfer[2],
+                   med$se.jubilacion[2], med$se.bene_gob[2], med$se.recibe_jub[2] * 100, 
+                   med$se.recibe_bene[2] * 100, med$se.tot_integ[2], med$se.p65mas[2]),
+    cv_grupo   = c(tot_exp$cv[2] * 100, NA, med$cv.ing_cor[2] * 100, med$cv.transfer[2] * 100,
+                   med$cv.jubilacion[2] * 100, med$cv.bene_gob[2] * 100, med$cv.recibe_jub[2] * 100, 
+                   med$cv.recibe_bene[2] * 100, med$cv.tot_integ[2] * 100, med$cv.p65mas[2] * 100)
+  )
+  
+  out <- bind_cols(df_resto, df_grupo) %>%
+    mutate(
+      prec_resto = case_when(
+        is.na(cv_resto) ~ "-",
+        cv_resto < 15 ~ "Alta",
+        cv_resto < 30 ~ "Moderada",
+        TRUE ~ "Baja"
+      ),
+      prec_grupo = case_when(
+        is.na(cv_grupo) ~ "-",
+        cv_grupo < 15 ~ "Alta",
+        cv_grupo < 30 ~ "Moderada",
+        TRUE ~ "Baja"
+      )
+    )
+  
+  attr(out, "ttest") <- list(
+    dif = as.numeric(ttest$estimate),
+    ic  = confint(ttest),
+    p   = ttest$p.value
+  )
+  
+  return(out)
+}
+
+# Ejecutar y unir ambos años
+res_t1_lista <- lapply(list("2022" = d22, "2024" = d24), t1)
+df_cuadro2 <- bind_rows(res_t1_lista, .id = "anio")
+```
+
+## Cuadro 2
+
+```{r}
+#| label: cuadro-2
+
+tt_22 <- attr(res_t1_lista[["2022"]], "ttest")
+tt_24 <- attr(res_t1_lista[["2024"]], "ttest")
+
+
+cuadro2 <- df_cuadro2 %>%
+  select(anio, indicador, 
+         est_resto, se_resto, cv_resto, prec_resto,
+         est_grupo, se_grupo, cv_grupo, prec_grupo) %>%
+  flextable() %>%
+  set_header_labels(
+    anio       = "Año",
+    indicador  = "Indicador",
+    est_resto  = "Est. Resto",
+    se_resto   = "SE",
+    cv_resto   = "CV (%)",
+    prec_resto = "Precisión",
+    est_grupo  = "Est. Grupo",
+    se_grupo   = "SE",
+    cv_grupo   = "CV (%)",
+    prec_grupo = "Precisión"
+  ) %>%
+  theme_vanilla() %>%
+  colformat_double(j = c("est_resto", "se_resto", "est_grupo", "se_grupo"), digits = 2, big.mark = ",") %>%
+  colformat_double(j = c("cv_resto", "cv_grupo"), digits = 2) %>%
+  # Semáforo para CV (%)
+  bg(i = ~ cv_resto >= 15 & cv_resto < 30, j = "cv_resto", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_resto >= 30, j = "cv_resto", bg = "#FCE4D6") %>%
+  bg(i = ~ cv_grupo >= 15 & cv_grupo < 30, j = "cv_grupo", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_grupo >= 30, j = "cv_grupo", bg = "#FCE4D6") %>%
+  set_caption("Cuadro 2. Tamaño de grupo y precisión de estimaciones con pesos trimestrales, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI."
+  )) %>%
+  fontsize(size = 9, part = "footer") %>%
+  autofit()
+
+cuadro2
+```
+
+## Cuadro 3
+
+```{r}
+#| label: t1-decil
+
+# Crear variable auxiliar en los subdiseños del grupo
+g22 <- update(g22, uno = 1)
+g24 <- update(g24, uno = 1)
+
+# CVs por decil
+cv_dec_22 <- svyby(~jubilacion + bene_gob, ~decil, g22, svymean, vartype = "cv")
+cv_dec_24 <- svyby(~jubilacion + bene_gob, ~decil, g24, svymean, vartype = "cv")
+
+# Tamanos muestrales por decil
+n_dec_22 <- svyby(~uno, ~decil, g22, unwtd.count)
+n_dec_24 <- svyby(~uno, ~decil, g24, unwtd.count)
+
+# Formatear datos para Cuadro 3
+romanos <- c("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+
+d3_22 <- tibble(
+  decil        = romanos[cv_dec_22$decil],
+  n_22         = n_dec_22[[2]],
+  cv_jub_22    = cv_dec_22$cv.jubilacion * 100,
+  prec_jub_22  = case_when(cv_jub_22 < 15 ~ "Alta", cv_jub_22 < 30 ~ "Moderada", TRUE ~ "Baja"),
+  cv_bene_22   = cv_dec_22$cv.bene_gob * 100,
+  prec_bene_22 = case_when(cv_bene_22 < 15 ~ "Alta", cv_bene_22 < 30 ~ "Moderada", TRUE ~ "Baja")
+)
+
+d3_24 <- tibble(
+  decil        = romanos[cv_dec_24$decil],
+  n_24         = n_dec_24[[2]],
+  cv_jub_24    = cv_dec_24$cv.jubilacion * 100,
+  prec_jub_24  = case_when(cv_jub_24 < 15 ~ "Alta", cv_jub_24 < 30 ~ "Moderada", TRUE ~ "Baja"),
+  cv_bene_24   = cv_dec_24$cv.bene_gob * 100,
+  prec_bene_24 = case_when(cv_bene_24 < 15 ~ "Alta", cv_bene_24 < 30 ~ "Moderada", TRUE ~ "Baja")
+)
+
+cuadro3_df <- left_join(d3_22, d3_24, by = "decil")
+
+cuadro3 <- flextable(cuadro3_df) %>%
+  set_header_labels(
+    decil        = "Decil",
+    n_22         = "n (2022)",
+    cv_jub_22    = "CV % Jub. (2022)",
+    prec_jub_22  = "Precisión",
+    cv_bene_22   = "CV % Prog. (2022)",
+    prec_bene_22 = "Precisión",
+    n_24         = "n (2024)",
+    cv_jub_24    = "CV % Jub. (2024)",
+    prec_jub_24  = "Precisión",
+    cv_bene_24   = "CV % Prog. (2024)",
+    prec_bene_24 = "Precisión"
+  ) %>%
+  theme_vanilla() %>%
+  colformat_double(j = c("cv_jub_22", "cv_bene_22", "cv_jub_24", "cv_bene_24"), digits = 2) %>%
+  colformat_int(j = c("n_22", "n_24"), big.mark = ",") %>%
+  # Semáforo para 2022
+  bg(i = ~ cv_jub_22 >= 15 & cv_jub_22 < 30, j = "cv_jub_22", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_jub_22 >= 30, j = "cv_jub_22", bg = "#FCE4D6") %>%
+  bg(i = ~ cv_bene_22 >= 15 & cv_bene_22 < 30, j = "cv_bene_22", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_bene_22 >= 30, j = "cv_bene_22", bg = "#FCE4D6") %>%
+  # Semáforo para 2024
+  bg(i = ~ cv_jub_24 >= 15 & cv_jub_24 < 30, j = "cv_jub_24", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_jub_24 >= 30, j = "cv_jub_24", bg = "#FCE4D6") %>%
+  bg(i = ~ cv_bene_24 >= 15 & cv_bene_24 < 30, j = "cv_bene_24", bg = "#FFF2CC") %>%
+  bg(i = ~ cv_bene_24 >= 30, j = "cv_bene_24", bg = "#FCE4D6") %>%
+  set_caption("Cuadro 3. Coeficiente de variación (%) y precisión por decil dentro del grupo de interés, ENIGH 2022 y 2024") %>%
+  add_footer_lines("Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.") %>%
+  fontsize(size = 9, part = "footer") %>%
+  autofit()
+
+cuadro3
+```
+
