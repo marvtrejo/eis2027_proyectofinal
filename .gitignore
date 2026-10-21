@@ -2,3 +2,8 @@
 
 /.quarto/
 **/*.quarto_ipynb
+/salidas
+.Rhistory
+.RDataTmp4
+.Rhistory
+.RDataTmp3

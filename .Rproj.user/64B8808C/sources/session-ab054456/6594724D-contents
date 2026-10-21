@@ -9,43 +9,51 @@ execute:
   warning: true
   message: true
 ---
-
 # 0. Configuración inicial
-En esta sección: 
 
-* Se arman las listas de variables de ingreso: las 5 fuentes principales y los 7 componentes de transferencias.
-* Se revisa que esas variables existan en ambas bases y sean numéricas. Si falta alguna, el script se detiene ahí.
-* Se crea la función `prep` con la que se deflactan los ingresos y se crean columnas nuevas para identificar los hogares con 65+, el ámbito rural/urbano, el sexo de la jefatura, decil nacional, los tramos de deciles (I–III, IV–VII, VIII–X), ingresos “sin” cada fuente, si el hogar recibe jubilación o programas, el tipo de transferencia y los deciles de cada escenario.
-* Se declara el diseño de la encuesta para cada año y separa el grupo de 65+.
-* Se produce un cuadro de verificación/aproximación inicial a los datos buscando conocer el número de hogares y personas, si las partes del ingreso suman el total y el % de hogares con ingreso cero.
-
+Antes de ejecutar el script, cambiar `ruta` por la carpeta que contiene las bases. Es el único valor que debe editarse.
 
 ```{r}
 #| label: setup
 # ruta <- "C:/RUTA/A/LA/CARPETA"   # ÚNICO valor editable: carpeta con las bases
 # setwd(ruta)
+```
 
-# Paquetes requeridos
+```{r}
+#| label: raiz-render
+#| purl: false
+# Solo aplica al renderizar el .qmd; no entra al .R entregable
+# knitr::opts_knit$set(root.dir = ruta)
+```
 
-library(dplyr); library(tidyr); library(survey); library(convey)
-library(dineq); library(flextable); library(ggplot2); library(ggtext)
+## Procesamiento y presentación
 
+El procesamiento se realizó en R `r getRversion()` y RStudio 2026.09.0 Build 174 con los paquetes:
 
-# Factores de deflactación. Año base: 2018
-def22 <- 1.2219539032448
-def24 <- 1.33989337825153
+* Manipulación de datos: `dplyr` y `tidyr`
+* Estimación con diseño muestral: `survey` y `convey`
+* Deciles ponderados y cotejo del Gini: `dineq`
+* Cuadros: `flextable`
+* Gráficas: `ggplot2` y `ggtext`
 
-# Bases de la ENIGH
-base22 <- read.csv("concentradohogar22.csv")
-base24 <- read.csv("concentradohogar24.csv")
+```{r}
+#| label: paquetes
+#| code-fold: false
 
-# Constantes comunes en el script
+library(dplyr)
+library(tidyr)
+library(survey)
+library(convey)
+library(dineq)
+library(flextable)
+library(ggplot2)
+library(ggtext)
+```
 
-z       <- qnorm(.975)
+Para la renderización de este documento se utilizó Quarto. Los cuadros y gráficas siguen los criterios de la *Guía para la visualización de gráficas, mapas y tablas* del INEGI.
 
-fuente  <- "Fuente: elaboración propia con datos de INEGI. Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH), 2022 y 2024."
-
-nota_cv <- "Precisión según criterio INEGI: alta CV < 15, moderada 15 ≤ CV < 30, baja CV ≥ 30."
+```{r}
+#| label: visualizacion
 
 # Estilo de graficas y tablas 
 
@@ -71,7 +79,7 @@ ancho_barra <- .75
 pal        <- c(`2022` = cat_inegi[1], `2024` = cat_inegi[2])
 
 pal_pob    <- c(`Hogares con 65+` = cat_inegi[1], 
-                Resto = cat_inegi[2])
+                `Sin 65+` = cat_inegi[2])
 
 pal_tipo   <- c(Ninguna = inegi_col[["referencia"]], 
                 `Solo jubilación` = cat_inegi[1],
@@ -129,7 +137,7 @@ theme_inegi <- function(orientacion = "v") {
 tema   <- theme_inegi("v") 
 tema_h <- theme_inegi("h")
 
-# Encabezado y pie de gráficas; nota y fuente
+# Encabezado. pie de gráficas, nota y fuente
 
 inegi_labs <- function(numero, 
                        titulo, 
@@ -181,34 +189,228 @@ estilo_ft <- function(ft) {
   ft
 }
 
-# "Cuadro N. Título" 
+# Título de cuadros
 
 titulo_ft <- function(ft, x) {
-  num <- sub("^(Cuadro [0-9.]+?)\\. .*$", "\\1", x)
-  tit <- sub("^Cuadro [0-9.]+?\\. ", "", x)
-  if (num == x) num <- ""
-  cap <- flextable::set_caption   
-  cap(ft, as_paragraph(
-    as_chunk(num, 
-             props = fp_text_default(font.size = 10,
-                                     color = inegi_col[["titulo"]])),
-    "\n",
-    as_chunk(tit, 
-             props = fp_text_default(font.size = 11, 
-                                     bold = TRUE, 
-                                     color = inegi_col[["titulo"]]))),
-    fp_p = officer::fp_par(text.align = "left"), 
-    align_with_table = FALSE)
+  p   <- regmatches(x, regexec("^(Cuadro [0-9.]+)\\. (.*)$", x))[[1]]
+  lin <- if (length(p)) p[2:3] else x
+  n   <- length(lin)
+  ft %>%
+    add_header_lines(lin) %>%
+    bg(i = 1:n, bg = "white", part = "header") %>%
+    color(i = 1:n, color = inegi_col[["titulo"]], part = "header") %>%
+    align(i = 1:n, align = "left", part = "header") %>%
+    fontsize(i = 1:n, size = 10, part = "header") %>%
+    fontsize(i = n, size = 11, part = "header") %>%
+    bold(i = 1:n, bold = FALSE, part = "header") %>%
+    bold(i = n, part = "header")
 }
 
 pie_ft <- function(ft) ft %>% 
   fontsize(size = 8, part = "footer") %>%
   color(color = inegi_col[["secundario"]], part = "footer")
+```
+
+## Fuente de información
+
+El análisis utiliza la tabla de concentrado de hogares (`concentradohogar`) de la Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH) 2022 y 2024 del INEGI. La unidad de análisis es el hogar. La variable de ingreso es el ingreso corriente total trimestral del hogar (`ing_cor`), que suma cinco fuentes:
+
+* Ingreso por trabajo
+* Renta de la propiedad
+* Transferencias
+* Estimación del alquiler de la vivienda
+* Otros ingresos corrientes
+
+El grupo de interés son los hogares con al menos un integrante de 65 años o más (`p65mas` > 0). Se compara con el resto de los hogares del país.
+
+```{r}
+#| label: fuentes
+#| code-fold: false
+
+base22 <- read.csv("concentradohogar22.csv")
+base24 <- read.csv("concentradohogar24.csv")
+
+fuente <- "Fuente: elaboración propia con datos de INEGI. Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH), 2022 y 2024."
+```
+
+## Deflactación
+
+Para comparar los dos levantamientos, todas las variables de ingreso se expresan en pesos de agosto de 2018. Cada variable de cada año se divide entre un único factor, 1.2220 para 2022 y 1.3399 para 2024, construido como el cociente del Índice Nacional de Precios al Consumidor de agosto de cada año entre el de agosto de 2018. Al usar el mismo factor para todas las fuentes de un año se conservan las identidades contables entre el ingreso total y sus componentes. Como el coeficiente de Gini y el índice de Theil no cambian si todos los ingresos se multiplican por una constante, la deflactación solo afecta a los niveles y a las comparaciones entre años, no a las medidas de desigualdad ni al orden de los hogares.
+
+```{r}
+#| label: deflactores
+#| code-fold: false
+
+def22 <- 1.2219539032448
+def24 <- 1.33989337825153
+```
+
+## Variables construidas
+
+### Desagregación de las transferencias
+
+Las transferencias (`transfer`) se dividen en tres componentes que suman su total:
+
+* Jubilaciones y pensiones (`jubilacion`).
+* Beneficios de programas gubernamentales (`bene_gob`).
+* Otras transferencias. Se obtienen como residuo e incluyen becas, donativos, remesas y transferencias en especie de otros hogares e instituciones.
+
+`bene_gob` incluye la Pensión para el Bienestar de las Personas Adultas Mayores, pero también programas no dirigidos a esta población, como becas para la educación básica y media superior, Jóvenes Construyendo el Futuro y Producción para el Bienestar, entre otros. Con el concentrado de hogares no es posible aislar la pensión para adultos mayores. Las becas públicas no forman parte de `bene_gob`, sino de la categoría de otras transferencias.
+
+### Ubicación en la distribución
+
+Los hogares se ordenan en deciles nacionales de `ing_cor` deflactado, calculados con todos los hogares del país y ponderados por el factor de expansión (función `ntiles.wtd` del paquete `dineq`). Como `ing_cor` ya incluye las transferencias, los deciles ubican a cada hogar después de recibirlas. En algunas secciones, los deciles se agrupan en tres tramos: I–III, IV–VII y VIII–X.
+
+### Escenarios de análisis
+
+Para responder la pregunta del bloque se construyeron tres escenarios de ingreso, restando a `ing_cor` una fuente:
+
+* Programas gubernamentales (escenario principal)
+* Jubilaciones (escenario de contraste)
+* Transferencias completas (escenario de referencia)
+
+Para cada escenario se recalculan los deciles nacionales con todos los hogares, lo que permite comparar la posición observada de cada hogar con la que tendría sin la fuente. 
+
+### Otras variables
+
+Estas variables se usan para formar subgrupos en la descomposición de la desigualdad:
+
+* Tipología de recepción. Combina dos indicadores de recepción (jubilación y programas gubernamentales) en cuatro categorías: ninguna, solo jubilación, solo programas y ambas.
+* Ámbito de residencia. Clasifica al hogar como rural cuando la localidad tiene menos de 2,500 habitantes (`tam_loc` = 4) y como urbano en otro caso.
+* Sexo de la jefatura del hogar.
+
+```{r}
+#| label: t0-prep
+#| code-fold: false
+
+# Variables de ingreso a deflactar
+comp_trans <- c("jubilacion", 
+                "bene_gob", 
+                "becas", 
+                "donativos",
+                "remesas", 
+                "transf_hog", 
+                "trans_inst")
+
+fuentes    <- c("ingtrab", 
+                "rentas", 
+                "transfer", 
+                "estim_alqu", 
+                "otros_ing")
+
+ing_vars   <- c("ing_cor", fuentes, comp_trans)
+
+# Variables mínimas
+req <- c(ing_vars, 
+         "p65mas", 
+         "tot_integ", 
+         "tam_loc", 
+         "sexo_jefe", 
+         "upm", 
+         "est_dis", 
+         "factor")
+
+for (b in list(base22, base24))
+  stopifnot(all(req %in% names(b)), all(sapply(b[req], is.numeric)))
+
+prep <- function(b, def) b %>%
+  mutate(
+    # Deflactación
+    across(all_of(ing_vars), ~ .x / def),
+    
+    # Desagregación de las transferencias
+    otras    = transfer - jubilacion - bene_gob,
+    
+    # Auxiliares y grupo de interés
+    uno      = 1,
+    g65      = as.numeric(p65mas > 0),
+    g65f     = factor(g65, 0:1, c("Sin 65+", "Con 65+")),
+    
+    # Ubicación en la distribución
+    decil    = ntiles.wtd(ing_cor, n = 10, weights = factor),
+    tramo    = cut(decil, c(0, 3, 7, 10), 
+                   labels = c("I–III", "IV–VII", "VIII–X")),
+    
+    # Escenarios de análisis
+    ing_sin_bene  = ing_cor - bene_gob,
+    ing_sin_jub   = ing_cor - jubilacion,
+    ing_sin_trans = ing_cor - transfer,
+    
+    # Otras variables
+    recibe_jub  = as.numeric(jubilacion > 0),
+    recibe_bene = as.numeric(bene_gob > 0),
+    tipo_tr  = factor(recibe_jub + 2 * recibe_bene, 0:3,
+                      c("Ninguna", 
+                        "Solo jubilación", 
+                        "Solo programas", 
+                        "Ambas")),
+    tam_loc  = as.numeric(tam_loc),
+    ambito   = factor(if_else(tam_loc == 4, "Rural", "Urbano")),
+    tipo_amb = interaction(tipo_tr, ambito, sep = " / ", drop = TRUE),
+    jefatura = factor(sexo_jefe, 1:2, c("Hombre", "Mujer"))) %>%
+  
+  # Deciles de cada escenario
+  mutate(across(starts_with("ing_sin"), 
+                ~ ntiles.wtd(.x, n = 10, 
+                             weights = factor),
+                .names = "decil_{.col}"))
+
+base22 <- prep(base22, def22)
+base24 <- prep(base24, def24)
+```
+
+## Diseño muestral y estimación
+
+Todas las estimaciones consideran el diseño muestral de la ENIGH:
+
+* Conglomerados (`upm`)
+* Estratos (`est_dis`)
+* Factor de expansión del hogar (`factor`)
+
+El diseño se especifica con el paquete `survey` y se prepara con `convey` para estimar medidas de desigualdad.El grupo de interés se analiza como subpoblación del diseño completo, de modo que la varianza de las estimaciones refleja la estructura muestral completa.
+
+```{r}
+#| label: t0-disenio
+#| code-fold: false
+
+disenio <- function(b)
+  svydesign(ids = ~upm, 
+            strata = ~est_dis, 
+            weights = ~factor, 
+            data = b) %>%
+  convey_prep()
+
+d22 <- disenio(base22)  
+g22 <- subset(d22, p65mas > 0)
+
+d24 <- disenio(base24)  
+g24 <- subset(d24, p65mas > 0)
+
+disenios <- list(`2022` = d22, `2024` = d24)
+grupos   <- list(`2022` = g22, `2024` = g24)
+```
+
+## Precisión, intervalos y pruebas
+
+Los intervalos de confianza y las pruebas se construyen al 95% (z = 1.96). La precisión de cada estimación se clasifica con el criterio del INEGI según su coeficiente de variación (CV):
+
+* Alta: CV < 15%
+* Moderada: 15% ≤ CV < 30%
+* Baja: CV ≥ 30%
+
+En los cuadros, las estimaciones de precisión moderada y baja se señalan con color.
+
+```{r}
+#| label: precision
+
+z       <- qnorm(.975)
+
+nota_cv <- "Precisión según criterio INEGI: alta CV < 15, moderada 15 ≤ CV < 30, baja CV ≥ 30."
 
 precision <- function(cv) case_when(is.na(cv) ~ "–",
-                                    cv < 15 ~ "Alta",
-                                    cv < 30 ~ "Moderada",
-                                    cv >= 30 ~ "Baja")
+                                    cv < 15   ~ "Alta",
+                                    cv < 30   ~ "Moderada",
+                                    cv >= 30  ~ "Baja")
 
 semaforo <- function(ft, cols) {
   for (j in cols) {
@@ -224,110 +426,17 @@ semaforo <- function(ft, cols) {
 }
 ```
 
-```{r}
-#| label: raiz-render
-#| purl: false
-# Solo aplica al renderizar el .qmd; no entra al .R entregable
-# knitr::opts_knit$set(root.dir = ruta)
-```
+## Verificación de los datos
 
-## Preparación de las bases
+Previo al análisis, se verificó la consistencia interna de ambas bases destacando que:
 
-```{r}
-#| label: t0-prep
-
-# Variables de ingreso a deflactar 
-comp_trans <- c("jubilacion", 
-                "bene_gob", 
-                "becas", 
-                "donativos",
-                "remesas", 
-                "transf_hog", 
-                "trans_inst")
-
-fuentes    <- c("ingtrab", 
-                "rentas", 
-                "transfer", 
-                "estim_alqu", 
-                "otros_ing")
-
-ing_vars   <- c("ing_cor", 
-                fuentes, 
-                comp_trans)
-
-# Variables mínimas utilizadas
-req <- c(ing_vars, 
-         "p65mas", 
-         "tot_integ", 
-         "tam_loc", 
-         "sexo_jefe", 
-         "upm", 
-         "est_dis", 
-         "factor")
-
-for (b in list(base22, base24))
-  stopifnot(all(req %in% names(b)), all(sapply(b[req], is.numeric)))
-
-# Variables creadas
-prep <- function(b, def) b %>%
-  mutate(across(all_of(ing_vars), ~ .x / def),
-         otras    = transfer - jubilacion - bene_gob,   
-         uno      = 1,
-         g65      = as.numeric(p65mas > 0),
-         g65f     = factor(g65, 0:1, c("Sin 65+", "Con 65+")),
-         tam_loc  = as.numeric(tam_loc),
-         ambito   = factor(if_else(tam_loc == 4, "Rural", "Urbano")),
-         jefatura = factor(sexo_jefe, 1:2, c("Hombre", "Mujer")),
-         decil    = ntiles.wtd(ing_cor, n = 10, weights = factor),
-         tramo = cut(decil, c(0, 3, 7, 10), 
-                     labels = c("I–III", "IV–VII", "VIII–X")),
-         ing_sin_bene  = ing_cor - bene_gob,     
-         ing_sin_jub   = ing_cor - jubilacion,   
-         ing_sin_trans = ing_cor - transfer,
-         recibe_jub  = as.numeric(jubilacion > 0),
-         recibe_bene = as.numeric(bene_gob > 0),
-         tipo_tr  = factor(recibe_jub + 2 * recibe_bene, 0:3,
-                           c("Ninguna", 
-                             "Solo jubilación", 
-                             "Solo programas", 
-                             "Ambas")),
-         tipo_amb = interaction(tipo_tr, 
-                                ambito, 
-                                sep = " / ", 
-                                drop = TRUE)) %>% 
-  mutate(across(starts_with("ing_sin"), 
-                ~ ntiles.wtd(.x, n = 10, weights = factor),
-                .names = "decil_{.col}"))
-
-base22 <- prep(base22, def22)
-base24 <- prep(base24, def24)
-
-# Diseño muestral 
-disenio <- function(b)
-  svydesign(ids = ~upm, 
-            strata = ~est_dis, 
-            weights = ~factor, 
-            data = b) %>%
-  convey_prep()
-
-# Grupo de población
-d22 <- disenio(base22)  
-g22 <- subset(d22, p65mas > 0)
-
-d24 <- disenio(base24)
-g24 <- subset(d24, p65mas > 0)
-
-disenios <- list(`2022` = d22, `2024` = d24)
-grupos   <- list(`2022` = g22, `2024` = g24)
-```
-
-### Cuadro 0.1 Descripción inicial
-
-Este cuadro contiene información sobre número de hogares y personas, la comprobación de la suma de las partes del ingreso y el % de hogares con ingreso cero.
+* El ingreso corriente coincide con la suma de sus cinco fuentes.
+* Las transferencias coinciden con la suma de sus siete componentes.
+* Se cuantificaron los hogares con ingreso corriente igual a cero, que deben excluirse del índice de Theil porque este usa logaritmos.
+* Los hogares con ingreso corriente igual a cero representan 0.02% del total en 2022 y 0.01% en 2024.
 
 ```{r}
 #| label: t0-verificacion
-
 descripcion <- function(b) c(
   "Hogares en la muestra"                 = nrow(b),
   "Hogares expandidos"                    = sum(b$factor),
@@ -338,44 +447,33 @@ descripcion <- function(b) c(
   "Máx. |transfer − suma de componentes|" = max(abs(b$transfer - rowSums(b[comp_trans]))),
   "% hogares con ing_cor = 0 (ponderado)" = 100 * sum(b$factor[b$ing_cor == 0]) / sum(b$factor))
 
-verificacion0 <- sapply(list("2022" = base22, "2024" = base24), 
-                        descripcion)
-cuadro0_df <- data.frame(Indicador = rownames(verificacion0), 
-                         verificacion0, 
-                         check.names = FALSE)
+verificacion0 <- sapply(list("2022" = base22, "2024" = base24), descripcion)
+
+cuadro0_df <- data.frame(Indicador = rownames(verificacion0), verificacion0, check.names = FALSE)
 
 cuadro0_1 <- flextable(cuadro0_df) %>%
   estilo_ft() %>%
   colformat_double(big.mark = ",", digits = 2) %>%
-  titulo_ft("Cuadro 0.1 Verificación de los datos en la ENIGH 2022 y 2024") %>%
+  titulo_ft("Cuadro 0.1. Verificación de los datos de la ENIGH 2022 y 2024") %>%
   add_footer_lines(fuente) %>%
   pie_ft()
-
 cuadro0_1
-
-dir.create("salidas", showWarnings = FALSE)
-saveRDS(cuadro0_df, "salidas/t0_verificacion.rds")
 ```
+
+Además, se cotejó el total de hogares expandidos y el coeficiente de Gini del ingreso corriente total con los tabulados básicos de la ENIGH (cuadro 3.1, "Hogares y su ingreso corriente total trimestral por deciles de hogares"). En este caso, las cifras estimadas difieren en el valor del Gini publicado por 0.0011 en 2022 y por 0.0010 en 2024. 
 
 ```{r}
 #| label: t0-cotejo_inegi
-# Cotejo con los tabulados básicos del INEGI (cuadro 3.1: hogares y su ingreso corriente total trimestral por deciles de hogares). 
-
 tab_inegi <- data.frame(anio    = c("2022", "2024"),
                         hogares = c(37560123, 38830230),
                         gini    = c(0.402, 0.391))
 
 cotejo_inegi <- tab_inegi %>%
-  mutate(hogares_propio = sapply(list(base22, base24), \(b)
-                                 sum(b$factor)),
-         gini_propio    = sapply(list(base22, base24), \(b)
-                                 gini.wtd(b$ing_cor, b$factor)))
+  mutate(hogares_propio = sapply(list(base22, base24), \(b) sum(b$factor)),
+         gini_propio    = sapply(list(base22, base24), \(b) gini.wtd(b$ing_cor, b$factor)))
 
-difiere <- with(cotejo_inegi, 
-                abs(hogares_propio - hogares) > 0 |
-                  abs(round(gini_propio, 3) - gini) > 0)
-if (any(difiere, na.rm = TRUE))
-  warning("Las cifras propias no coinciden con los tabulados del INEGI; revisar cotejo_inegi.")
+difiere <- with(cotejo_inegi, abs(hogares_propio - hogares) > 0 |
+                              abs(round(gini_propio, 3) - gini) > 0)
 
 cuadro0_2_df <- with(cotejo_inegi, data.frame(
   Indicador = rep(c("Hogares", "Coeficiente de Gini"), each = 2),
@@ -388,23 +486,14 @@ cuadro0_2_df <- with(cotejo_inegi, data.frame(
 cuadro0_2 <- flextable(cuadro0_2_df) %>%
   merge_v(j = "Indicador") %>%
   estilo_ft() %>%
-  colformat_double(i = 1:2, 
-                   digits = 0, 
-                   big.mark = ",", 
-                   na_str = "ND") %>%
-  colformat_double(i = 3:4, 
-                   digits = 3, 
-                   na_str = "ND") %>%
+  colformat_double(i = 1:2, digits = 0, big.mark = ",", na_str = "ND") %>%
+  colformat_double(i = 3:4, digits = 3, na_str = "ND") %>%
   titulo_ft("Cuadro 0.2. Cotejo con los tabulados básicos de la ENIGH (INEGI)") %>%
-  add_footer_lines(c(
-    "Nota: tabulado = hogares y su ingreso corriente total trimestral por deciles de hogares (cuadro 3.1 de los tabulados básicos). Gini del ingreso corriente total del hogar con factor de expansión (dineq::gini.wtd); por ser invariante a la escala, la deflactación no lo altera. ND: no disponible.",
-    fuente)) %>%
-  pie_ft() %>% 
+  add_footer_lines(fuente) %>%
+  pie_ft() %>%
   autofit()
-
 cuadro0_2
 
-saveRDS(cuadro0_2_df, "salidas/t0_cotejo_inegi.rds")
 ```
 
 
@@ -526,7 +615,7 @@ cuadro1_1 <- flextable(cuadro1_df) %>%
                    digits = 0, 
                    big.mark = ",") %>%
   semaforo(c("cv_resto", "cv_grupo")) %>%
-  titulo_ft("Cuadro 1.1 Tamaño del grupo y precisión de las estimaciones, ENIGH 2022 y 2024") %>%
+  titulo_ft("Cuadro 1.1. Tamaño del grupo y precisión de las estimaciones, ENIGH 2022 y 2024") %>%
   add_footer_lines(c(
     paste("Nota: grupo = hogares con al menos un integrante de 65 años o más. Montos trimestrales por hogar en pesos de 2018. Las medias de transferencias incluyen hogares que no las reciben (valor 0); cobertura = % de hogares con monto > 0. EE: error estándar.", nota_cv),
     nota_tt, fuente)) %>%
@@ -1468,7 +1557,7 @@ t5_sens <- lapply(c(`Hogares con 65+` = 1, Resto = 0),
 cuadro5_2 <- ft_cambio(t5_sens) %>%
   colformat_double(digits = 4) %>%
   colformat_double(j = "p", digits = 3) %>%
-  titulo_ft("Cuadro 5.2 Sensibilidad del cambio 2022–2024 en Gini y Theil T a valores extremos: hogares con 65+ y resto de los hogares") %>%
+  titulo_ft("Cuadro 5.2. Sensibilidad del cambio 2022–2024 en Gini y Theil T a valores extremos: hogares con 65+ y resto de los hogares") %>%
   add_footer_lines(c(
     "Nota: se excluye, en cada población y año, el hogar con mayor ingreso corriente. Mismo procedimiento de prueba que el Cuadro 5.1. Análisis de robustez; las estimaciones principales son las del Cuadro 5.1.",
     fuente)) %>%
