@@ -1,0 +1,35 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Taller de Economía Cuantitativa III"
+  navbar:
+    logo: images/FE_logo.png
+    logo-alt: "Facultad de Economía UNAM"
+    left:
+      - text: "Inicio"
+        file: index.qmd
+      - text: "Acerca del curso"
+        file: about.qmd
+      - text: "Bibliografía"
+        file: bibliografia.qmd
+      - text: "Profesores"
+        file: profesores.qmd
+
+format:
+  html:
+    theme:
+      - cosmo
+      - custom.scss
+    code-fold: false
+    code-tools: false
+    toc: true
+
+editor: source
+
+execute:
+  echo: true
+  warning: false
+  message: false 
+

@@ -1,0 +1,201 @@
+# 1. Tamaño del grupo y precisión de las estimaciones
+
+Antes de describir la posición del grupo en la distribución del ingreso, esta sección establece tres cosas: cuántos hogares lo integran y con qué precisión pueden estimarse sus características; en qué se diferencia del resto de los hogares en ingreso, transferencias y tamaño; y qué combinación de transferencias recibe. Los resultados indican hasta dónde pueden desagregarse los análisis de las tareas siguientes.
+
+## 1.1 Características del grupo y del resto de los hogares
+
+Para cada población se estiman, con el diseño muestral:
+
+* el número de hogares en muestra y expandidos, y el porcentaje que el grupo representa del total del país;
+* el ingreso corriente medio y las medias de transferencias, jubilaciones y programas gubernamentales;
+* la cobertura de jubilaciones y de programas gubernamentales (porcentaje de hogares con monto mayor que cero);
+* el número medio de integrantes y de personas de 65 años o más por hogar.
+
+Las medias de las transferencias incluyen a los hogares que no las reciben (con valor cero), por lo que combinan cobertura y monto; por eso la cobertura se reporta por separado. Como verificación, la suma de hogares expandidos del grupo y del resto debe igualar el total nacional.
+
+```{r}
+#| label: t1-calculo
+
+# Cifras para el texto: extrae un valor único de un cuadro y le da formato
+cifra <- function(df, ..., col = "est", d = 1) {
+  x <- dplyr::filter(df, ...)[[col]]
+  stopifnot(length(x) == 1)
+  format(round(x, d), big.mark = ",", nsmall = d)
+}
+
+vars_t1 <- ~ing_cor + transfer + jubilacion + bene_gob + recibe_jub + recibe_bene + tot_integ + p65mas
+
+etq <- c(n           = "Muestra (n)",
+         uno         = "Hogares expandidos",
+         g65         = "% de hogares del país",
+         ing_cor     = "Ingreso corriente medio",
+         transfer    = "Transferencias medias",
+         jubilacion  = "Jubilaciones medias",
+         bene_gob    = "Programas gob. medios",
+         recibe_jub  = "Cobertura jubilación (%)",
+         recibe_bene = "Cobertura prog. gob. (%)",
+         tot_integ   = "Integrantes del hogar",
+         p65mas      = "Personas 65+ por hogar")
+
+fila <- function(x) data.frame(ind = names(coef(x)),
+                               est = coef(x),
+                               se  = as.numeric(SE(x)),
+                               cv  = as.numeric(cv(x)) * 100)
+
+t1 <- function(d) {
+  lapply(c(resto = 0, grupo = 1), function(k) {
+    s <- subset(d, g65 == k)
+    bind_rows(data.frame(ind = "n", est = sum(weights(s) > 0)),
+              fila(svytotal(~uno, s)),
+              fila(svymean(vars_t1, s)))
+  }) %>%
+    bind_rows(.id = "pob") %>%
+    bind_rows(data.frame(pob = "grupo", fila(svymean(~g65, d))))
+}
+
+cuadro1_df <- lapply(disenios, t1) %>%
+  bind_rows(.id = "anio") %>%
+  mutate(across(c(est, se),
+                ~ if_else(ind %in% c("g65", "recibe_jub", "recibe_bene"), .x * 100, .x)),
+         across(c(est, se, cv),
+                ~ if_else(pob == "resto" & ind == "p65mas", NA_real_, .x)),
+         prec = precision(cv)) %>%
+  arrange(anio, match(ind, names(etq))) %>%
+  mutate(ind = etq[ind]) %>%
+  pivot_wider(names_from = pob, values_from = c(est, se, cv, prec)) %>%
+  select(anio, ind, ends_with("resto"), ends_with("grupo"))
+
+# Verificación: grupo + resto = total de hogares del país
+stopifnot(isTRUE(all.equal(
+  filter(cuadro1_df, ind == "Hogares expandidos") %>% with(est_resto + est_grupo),
+  c(sum(base22$factor), sum(base24$factor)),
+  check.attributes = FALSE)))
+```
+
+## 1.2 Diferencia en el tamaño del hogar
+
+Como el ingreso se analiza por hogar y sin ajuste por tamaño, una diferencia sistemática en el número de integrantes entre el grupo y el resto afecta la comparación de ingresos y la ubicación de los hogares en los deciles. Se prueba si la media de integrantes difiere entre ambas poblaciones con una prueba t que considera el diseño muestral (`svyttest`). El resultado, expresado como la diferencia grupo − resto con su intervalo al 95%, se reporta en la nota del Cuadro 1.1.
+
+```{r}
+#| label: t1-prueba
+
+tt <- lapply(disenios, function(d) svyttest(tot_integ ~ g65, d))
+
+nota_tt <- sapply(names(tt), function(a) with(tt[[a]], sprintf(
+  "%s: diferencia grupo − resto en integrantes = %.2f (IC 95%%: %.2f a %.2f; p %s).",
+  a, estimate, conf.int[1], conf.int[2],
+  if (p.value < .001) "< 0.001" else sprintf("= %.3f", p.value))))
+```
+
+## Cuadro 1.1 Características de los hogares con 65+ y del resto
+
+```{r}
+#| label: t1-cuadro
+
+cuadro1_1 <- flextable(cuadro1_df) %>%
+  set_header_labels(anio = "Año", ind = "Indicador",
+                    est_resto = "Estimación", se_resto = "EE",
+                    cv_resto = "CV (%)", prec_resto = "Precisión",
+                    est_grupo = "Estimación", se_grupo = "EE",
+                    cv_grupo = "CV (%)", prec_grupo = "Precisión") %>%
+  add_header_row(values = c("", "Resto de los hogares", "Hogares con 65+"),
+                 colwidths = c(2, 4, 4)) %>%
+  merge_v(j = "anio") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2, big.mark = ",", na_str = "–") %>%
+  colformat_double(i = ~ ind %in% c("Muestra (n)", "Hogares expandidos"),
+                   j = c("est_resto", "est_grupo"), digits = 0, big.mark = ",") %>%
+  semaforo(c("cv_resto", "cv_grupo")) %>%
+  titulo_ft("Cuadro 1.1. Características de los hogares con 65+ y del resto de los hogares, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    paste("Nota: grupo = hogares con al menos un integrante de 65 años o más. Montos trimestrales por hogar en pesos de agosto de 2018. Las medias de transferencias incluyen hogares que no las reciben (valor 0); cobertura = % de hogares con monto > 0. EE: error estándar.", nota_cv),
+    nota_tt, fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro1_1
+```
+
+**Lectura.** En 2024, los hogares con al menos una persona de 65 años o más representan `r cifra(cuadro1_df, anio == "2024", ind == "% de hogares del país", col = "est_grupo")`% de los hogares del país. Su ingreso corriente medio trimestral es de `r cifra(cuadro1_df, anio == "2024", ind == "Ingreso corriente medio", col = "est_grupo", d = 0)` pesos, frente a `r cifra(cuadro1_df, anio == "2024", ind == "Ingreso corriente medio", col = "est_resto", d = 0)` en el resto de los hogares. [COMPLETAR]
+
+## 1.3 Precisión de las estimaciones por decil
+
+Las tareas 2 y 6 desagregan al grupo por decil nacional de ingreso. Para identificar dónde esas cifras son frágiles, se estima el coeficiente de variación de las medias de jubilaciones y de programas gubernamentales del grupo en cada decil, junto con el número de hogares del grupo en muestra.
+
+```{r}
+#| label: t1-decil
+
+t1_decil <- function(g) {
+  cvs <- svyby(~jubilacion + bene_gob, ~decil, g, svymean, vartype = "cv")
+  data.frame(decil   = as.character(as.roman(cvs$decil)),
+             n       = svyby(~uno, ~decil, g, unwtd.count)[[2]],
+             cv_jub  = cvs$cv.jubilacion * 100,
+             cv_bene = cvs$cv.bene_gob * 100) %>%
+    mutate(prec_jub = precision(cv_jub), .after = cv_jub) %>%
+    mutate(prec_bene = precision(cv_bene))
+}
+
+cuadro1_2_df <- lapply(grupos, t1_decil) %>%
+  bind_rows(.id = "anio") %>%
+  pivot_wider(names_from = anio, values_from = -c(anio, decil), names_vary = "slowest")
+
+cuadro1_2 <- flextable(cuadro1_2_df) %>%
+  set_header_labels(values = c(decil = "Decil", setNames(
+    rep(c("n", "CV % Jub.", "Precisión", "CV % Prog.", "Precisión"), 2),
+    names(cuadro1_2_df)[-1]))) %>%
+  add_header_row(values = c("", "2022", "2024"), colwidths = c(1, 5, 5)) %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2) %>%
+  colformat_double(j = c("n_2022", "n_2024"), digits = 0, big.mark = ",") %>%
+  semaforo(grep("^cv", names(cuadro1_2_df), value = TRUE)) %>%
+  titulo_ft("Cuadro 1.2. Coeficiente de variación (%) de las medias de jubilación y programas gubernamentales por decil nacional, hogares con 65+, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    paste("Nota: deciles nacionales de ingreso corriente total del hogar (todos los hogares). n = hogares del grupo en muestra en cada decil.", nota_cv),
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro1_2
+```
+
+**Lectura.** [COMPLETAR]
+
+## 1.4 Hogares según la transferencia que reciben
+
+Las dos transferencias centrales responden a lógicas distintas: las jubilaciones dependen principalmente de una trayectoria laboral con seguridad social, mientras que los programas gubernamentales son no contributivos. Se clasifica a los hogares del grupo según no reciban ninguna, reciban solo una o reciban ambas. Esta tipología se usa de nuevo en las tareas 2 y 3.
+
+```{r}
+#| label: t1-tipo
+
+cuadro1_3_df <- lapply(grupos, function(g) fila(svymean(~tipo_tr, g))) %>%
+  bind_rows(.id = "anio") %>%
+  mutate(ind = sub("tipo_tr", "", ind),
+         across(c(est, se), ~ .x * 100),
+         prec = precision(cv)) %>%
+  pivot_wider(names_from = anio, values_from = c(est, se, cv, prec), names_vary = "slowest")
+
+# Verificación: cada año suma 100%
+stopifnot(all(abs(colSums(select(cuadro1_3_df, starts_with("est"))) - 100) < 1e-8))
+
+cuadro1_3 <- flextable(cuadro1_3_df) %>%
+  set_header_labels(values = c(ind = "Recepción", setNames(
+    rep(c("%", "EE", "CV (%)", "Precisión"), 2), names(cuadro1_3_df)[-1]))) %>%
+  add_header_row(values = c("", "2022", "2024"), colwidths = c(1, 4, 4)) %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 1.3. Hogares con 65+ según recepción de jubilación y programas gubernamentales, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Nota: porcentajes del total de hogares del grupo. Programas gubernamentales = bene_gob (incluye programas no dirigidos a adultos mayores). Cortes transversales: los cambios entre años reflejan la composición del grupo, no movimientos de hogares. EE: error estándar.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro1_3
+```
+
+**Lectura.** [COMPLETAR]
+
+## Síntesis
+
+[COMPLETAR: qué implica esta tarea para las siguientes: si el tamaño y la precisión permiten seguir, en qué deciles hay que agrupar y qué hipótesis abre la tipología de recepción.]

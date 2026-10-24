@@ -1,0 +1,523 @@
+---
+title: "Solución de sistemas de ecuaciones lineales"
+author: "Eduardo Castro; Marvin Trejo"
+date: "2025-08-27"
+categories: [Ejercicios, 2026-I]
+draft: true
+---
+
+Durante esta clase resolvimos, por el método de sustitución, igualación y gráfico, los siguientes ejercicios.
+
+## Ejercicio 1.
+
+$$
+\begin{align}
+5x-8y &= -\frac{64}{16} \tag{A}\\\\
+2x+3y &= \frac{153}{40} \tag{B}\\
+\end{align}
+$$
+
+::: panel-tabset
+### Método de sustitución
+
+1)  Despejamos para una variable, en este caso despejamos $x$ de la ecuación A $$
+    \begin{align}
+    5x &= -\frac{64}{16} +8y \\\\
+    5x &= -4+8y \\\\
+    x &= \frac{8}{5}y-\frac{4}{5} \tag{A1} \\
+    \end{align}
+    $$
+2)  Sustituimos $x$ en la ecuación B $$
+    \begin{align}
+    2(\frac{8}{5}y-\frac{4}{5})+3y &= \frac{153}{40} \\\\
+    \frac{16}{5}y-\frac{8}{5} +3y &= \frac{153}{40} \\\\
+    \frac{16}{5}y-\frac{15}{5}y &= \frac{153}{40} + \frac{8}{5} \\\\
+    \frac{31}{5}y&= \frac{153+64}{40} = \frac{217}{40} \\\\
+    y&= \frac{217}{40}(\frac{5}{31}) \\\\
+    \end{align}
+    $$ **Tip:** Cuando trabajen con fracciones grandes, busquen siempre la manera de simplificar o reducir las operaciones que deben realizar. En este caso, para evitar la multiplicación por $\frac{5}{31}$ podemos replantear $\frac{217}{40}$ de la siguiente manera
+
+$$
+\begin{align}
+y &= \frac{(7)(\color{blue}{31})}{(8)(\color{green}{5})}(\frac{\color{green}{5}}{\color{blue}{31}}) \\
+\mathbf{y} &= \mathbf{\frac{7}{8}}
+\end{align}
+$$ 3) Sustituimos el valor de $y$ en la ecuación A1 $$
+\begin{align}
+x &= \frac{8}{5}y-\frac{4}{5} \tag{A1} \\\\
+x &= \frac{8}{5}(\frac{7}{8})-\frac{4}{5} \\\\
+x &= \frac{7}{5}-\frac{4}{5} \\\\
+\mathbf{x} &= \mathbf{\frac{3}{5}}
+\end{align}
+$$ **Solución** $$
+\begin{align}
+x &= \frac{3}{5} \\ \\
+y&= \frac{7}{8}
+\end{align}
+$$
+
+### Método de igualación
+
+1)  Despejamos una de las incógnitas en ambas ecuaciones, para este ejemplo utilizaremos $x$
+
+$$
+\begin{align}
+5x &= -\frac{64}{16} +8y \\\\
+5x &= -4+8y \\\\
+x &= \frac{8}{5}y-\frac{4}{5} \tag{A1} \\\\
+\\
+\\
+2x &= \frac{153}{40} -3y \\\\
+x &= (\frac{1}{2})(\frac{153}{40}-3y) \\\\
+x &= \frac{153}{80} - \frac{3}{2}y \tag{B1} 
+\end{align}
+$$
+
+2)  Igualamos las ecuaciones A1 y B1
+
+$$
+\begin{align}
+\frac{8}{5}y-\frac{4}{5} &= \frac{153}{80} - \frac{3}{2}y \\ \\
+\frac{8}{5}y+\frac{3}{2}y &= \frac{153}{80} + \frac{4}{5} \\\\
+\frac{16+15}{10}y &= \frac{765+320}{400} \\\\
+\frac{31}{10}y &= \frac{1085}{400} \\\\
+y &= \frac{1085}{400} (\frac{10}{31})=\frac{(35)(31)}{(40)(10)} (\frac{10}{31})  \\\\
+y &= \frac{35}{40} = \frac{(7)(5)}{(8)(5)}  \\\\
+y&=\frac{7}{8}
+\end{align}
+$$
+
+3)  Por último sustituimos el valor de $y$ en la ecuación A1 para obtener el valor de $x$
+
+$$
+\begin{align}
+x &= \frac{8}{5}y-\frac{4}{5} \tag{A1} \\ \\
+x &= \frac{8}{5}(\frac{7}{8})-\frac{4}{5} \\ \\
+x &= \frac{7}{5}-\frac{4}{5} \\ \\
+x &= \frac{3}{5}
+\end{align}
+$$ **Solución**
+
+$$
+\begin{align}
+x &= \frac{3}{5} 
+\\\\
+y&=\frac{7}{8}
+\end{align}
+$$
+
+### Método gráfico
+
+La solución por método gráfico requiere que en cada recta conozcamos al menos dos puntos que nos permitan graficar, los más sencillos serían los puntos donde $x=0$ e $y=0$. En la ecuación A tenemos los siguientes puntos $$
+\begin{align}
+5x-8y &= -\frac{64}{16} \tag{A}\\\\
+5(0)-8y&=-4 \\\\
+y&=\frac{-4}{-8}=\frac{1}{2} \\\\
+x=0; \quad y&=\frac{1}{2} \tag{Punto A1} \\\\
+\\\\
+5x-8(0)&=-4 \\\\
+x&=-\frac{4}{5} \\\\
+\quad \quad x=-\frac{4}{5}; \quad y&=0 \tag{Punto A2}
+\end{align}
+$$ En la ecuación B tenemos los siguientes puntos $$
+\begin{align}
+2x+3y &= \frac{153}{40} \tag{B}\\\\
+2(0)+3y &= \frac{153}{40} \\\\
+y&=(\frac{1}{3})\frac{153}{40}= \frac{153}{120} \tag{Punto B1} \\\\
+\\\\
+2x+3(0) &= \frac{153}{40} \\\\
+y&=(\frac{1}{2})\frac{153}{40}= \frac{153}{80} \tag{Punto B2} \\\\
+\end{align}
+$$
+
+Este conjunto de puntos nos permite graficar y visualizar la solución del sistema de ecuaciones.
+
+```{r metodo grafico1, echo=FALSE, warning = FALSE, message=FALSE}
+library(highcharter)
+
+# Rango de x
+x_val <- seq(-2, 3, 0.1)
+
+# Ecuaciones
+y1 <- 0.625*x_val + 0.5
+y2 <- -0.666*x_val + 1.275
+
+# Intersecciones con ejes
+puntos_a <- data.frame(x= c(0, -0.8), y=c(0.5, 0), label= c("Punto A1", "Punto A2"))
+puntos_b <- data.frame(x= c(0, 1.9125), y=c(1.275, 0), label= c("Punto B1", "Punto B2"))
+
+# Solución del sistema
+A <- matrix(c(5, -8, 2, 3), nrow=2, byrow=TRUE)
+b <- c(-4, 3.825)
+sol <- solve(A,b)
+
+# Dataframes
+df1 <- data.frame(x = x_val, y = y1)
+df2 <- data.frame(x = x_val, y = y2)
+df_sol <- data.frame(x = sol[1], y = sol[2])
+
+# Gráfica
+highchart() %>%
+  hc_add_series(df1, "spline", hcaes(x = x, y = y), name = "5x - 8y = -64/16", color = "blue",
+                marker = list(enabled = FALSE)) %>%
+  hc_add_series(df2, "spline", hcaes(x = x, y = y), name = "2x + 3y = 153/40", color = "red",
+                marker = list(enabled = FALSE)) %>%
+  hc_add_series(df_sol, "scatter", hcaes(x = x, y = y),
+                name = paste0("Solución (", round(sol[1],3), ", ", round(sol[2],3), ")"),
+                marker = list(symbol = "circle", radius = 6, fillColor = "orange")) %>%
+  hc_add_series(puntos_a, "scatter", hcaes(x = x, y = y, name = label),
+                showInLegend = FALSE,
+                marker = list(symbol = "diamond", radius = 6, fillColor = "orange"),
+                dataLabels = list(enabled = TRUE, format = "{point.name}")) %>%
+  hc_add_series(puntos_b, "scatter", hcaes(x = x, y = y, name = label),
+                showInLegend = FALSE,
+                marker = list(symbol = "triangle", radius = 6, fillColor = "orange"),
+                dataLabels = list(enabled = TRUE, format = "{point.name}")
+                ) %>%
+  hc_title(text = "Método gráfico",
+           style = list(fontSize = "18px", fontWeight = "bold")) %>%
+  hc_legend(enabled = TRUE) %>% 
+  hc_xAxis(plotLines = list(list(value = 0, color = "darkgrey", width = 2, zIndex = 3))) %>%
+  hc_yAxis(plotLines = list(list(value = 0, color = "darkgrey", width = 2, zIndex = 3))) %>%
+  hc_tooltip(shared = FALSE) %>%
+  hc_plotOptions(series = list(animation = FALSE,
+                               states = list(inactive = list(enabled = FALSE),
+                                             hover = list(animation = list(duration = 0)))))
+```
+:::
+
+## Ejercicio 2.
+
+$$
+\begin{align}
+3x+3y+6z &= 4.5 \tag{A}\\\\
+5x-4y-3z &= \frac{53}{4} \tag{B}\\\\
+x+y-2z &= 0.5 \tag{C}\\
+\end{align}
+$$ 1) Elegimos una ecuación y una incógnita para despejar, en este caso elegimos la ecuación C y la incógnita $x$
+
+$$
+x=-y+2z+\frac{1}{2} \tag{C1}
+$$
+
+Noten que convertimos el 0.5 en fracción para hacer más sencillas las operaciones en los siguientes pasos.
+
+2)  Sustituimos el valor de $x$ en alguna de las ecuaciones restantes, por ejemplo la ecuación A
+
+$$
+\begin{align}
+3x+3y+6z &= 4.5 \tag{A}\\\\
+3(-y+2z+\frac{1}{2})+3y+6z &= \frac{9}{2}\\\\
+-3y+6z+\frac{3}{2}+3y+6z &= \frac{9}{2}\\\\
+12z&=\frac{9}{2}-\frac{3}{2}= \frac{6}{2}=3 \\\\
+z &= \frac{3}{12}= \frac{1}{4} \tag{A1}\\
+\end{align}
+$$
+
+3)  Sustituimos los valores de $x$ y $y$, que obtuvimos en las ecuaciones C1 y A1 respectivamente, en la ecuación B
+
+$$
+\begin{align}
+5x-4y-3z &= \frac{53}{4} \tag{B}\\\\
+5(-y+2z+\frac{1}{2})-4y-3(\frac{1}{4}) &= \frac{53}{4} \\\\
+-5y+10z+\frac{5}{2}-4y-\frac{3}{4} &= \frac{53}{4} \\\\
+-9y+10(\frac{1}{4}) &= \frac{53}{4}+ \frac{3}{4} - \frac{5}{2}(\frac{2}{2}) \\\\
+-9y &= \frac{56}{4}- \frac{10}{4} -\frac{10}{4} = \frac{36}{4} = \frac{(9)(4)}{4}  \\\\
+y&=\frac{9}{-9}=-1 \tag{B1}
+\end{align}
+$$
+
+4)  Por último, sustituimos en C1 los valores de $z$ e $y$ que obtuvimos en las ecuaciones A1 y B1
+
+$$
+\begin{align}
+x&=-y+2z+\frac{1}{2} \tag{C1} \\\\
+x&=-(-1)+2(\frac{1}{4}) +\frac{1}{2} \\\\
+x&=1+\frac{1}{2}+\frac{1}{2}=2
+\end{align}
+$$
+
+**Solución** $$
+\begin{align}
+x&=2 \\\\
+y&=-1 \\\\
+z &= \frac{1}{4}
+\end{align}
+$$
+
+## Ejercicio 3.
+
+$$
+\begin{align}
+2Q_D+3P &= 100 \tag{A}\\\\
+Q_S &= 2P-55 \tag{B}\\
+\end{align}
+$$
+
+::: panel-tabset
+### Método de sustitución
+
+1)  En este sistema de ecuaciones ya contamos con una incógnita despejada en la ecuación B, por lo que iniciaremos sustituyendo su valor en la ecuación A. *Recuerden* que en estos casos $Q_S$ y $Q_D$ refieren a cantidades, el subíndice solo indica si se tratan de cantidades ofrecidas o demandadas, por lo que $Q_S=Q=Q_D$
+
+$$
+\begin{align}
+2Q_D+3P &= 100 \tag{A}\\\\
+2(2P-55)+3P&=100\\\\
+4P-110+3P&=100\\\\
+7P&=100+110\\\\
+P&=\frac{210}{7}=30\\\\
+\end{align}
+$$
+
+2)  Para finalizar, sustituimos el valor de P en la ecuación B
+
+$$
+\begin{align}
+Q_S &= 2P-55 \tag{B}\\\\
+Q_S &=2(30)-55\\\\
+Q&=60-55=5
+\end{align}
+$$
+
+**Solución**
+
+$$
+\begin{align}
+P&=30\\\\
+Q&=5
+\end{align}
+$$
+
+### Método de igualación
+
+1)  La ecuación B ya se encuentra despejada para Q, por lo que hacemos lo mismo con la ecuación A.
+
+$$
+\begin{align}
+2Q_D+3P &= 100 \tag{A}\\\\
+2Q_D &= 100-3P \\\\
+Q_D &= \frac{100-3P}{2}=50-\frac{3}{2}P \tag{A1} \\\\
+\end{align}
+$$
+
+2)  Igualamos la ecuación B y A1. *Recuerden* que para solucionar algebraicamente este sistema se considera que $Q_S=Q=Q_D$
+
+$$
+\begin{align}
+Q_D &= 50-\frac{3}{2}P \tag{A1} \\\\
+Q_S &= 2P-55 \tag{B}\\\\
+2P-55 &= 50-\frac{3}{2}P \\\\
+2P+\frac{3}{2}P&= 50+55 \\\\
+\frac{4}{2}P+\frac{3}{2}P&= 105 \\\\
+\frac{7}{2}P&= 105 \\\\
+P&= (\frac{105}{1})(\frac{2}{7})=\frac{210}{7} \\\\
+P&=30
+\end{align}
+$$
+
+3)  Sustituimos el valor de $P$ en cualquiera de las ecuaciones del sistema para obtener el valor de $Q$, utilizamos la ecuación B por ser la que requiere menor número de operaciones.
+
+$$
+\begin{align}
+Q_S &= 2P-55 \tag{B}\\
+Q&=2(30)-55=60-55\\
+Q&=5
+\end{align}
+$$
+
+**Solución**
+
+$$
+\begin{align}
+P&=30\\
+Q&=5
+\end{align}
+$$
+
+### Método gráfico
+
+1)  En cada ecuación, identificamos los puntos en los que $x=0$ e $y=0$. En la ecuación B tenemos
+
+$$
+\begin{align}
+Q_S &= 2P-55 \tag{B}\\\\
+Q_S&=2(0)-55 \\\\
+P=0; \quad Q&=-55 \tag{Punto B1} \\\\
+\\\\
+0 &= 2P-55 \\\\
+P &= \frac{55}{2} \\\\
+P=\frac{55}{2}; \quad Q&=0 \tag{Punto B2} \\\\
+\end{align}
+$$
+
+2)  En la ecuación A tenemos
+
+$$
+\begin{align}
+2Q_D+3P &= 100 \tag{A}\\\\
+2Q_D+3(0)&=100 \\\\
+Q_D &= \frac{100}{2}=50 \\\\
+P=0; \quad Q&=50 \tag{Punto A1} \\\\
+\\\\
+2(0)+3P &= 100 \\\\
+P &= \frac{100}{3} \\\\
+P=\frac{100}{3}; \quad Q&=0 \tag{Punto A2} \\\\
+\end{align}
+$$
+
+3)  Graficamos utilizando como referencia los puntos anteriores
+
+```{r metodo grafico2, echo=FALSE, warning = FALSE, message=FALSE}
+library(highcharter)
+
+# Rango de x
+x_val <- seq(-60, 60, 1)
+
+# Ecuaciones
+y1 <- 2*x_val -55
+y2 <- -1.5*x_val + 50
+
+# Intersecciones con ejes
+puntos_a <- data.frame(x= c(0, 100/3), y=c(50, 0), label= c("Punto A1", "Punto A2"))
+puntos_b <- data.frame(x= c(0, 27.5), y=c(-55, 0), label= c("Punto B1", "Punto B2"))
+
+# Solución del sistema
+A <- matrix(c(2, 3, 1, -2), nrow=2, byrow=TRUE)
+b <- c(100, -55)
+sol <- solve(A,b)
+
+# Dataframes
+df1 <- data.frame(x = x_val, y = y1)
+df2 <- data.frame(x = x_val, y = y2)
+df_sol <- data.frame(x = sol[2], y = sol[1])
+
+# Gráfica
+highchart() %>%
+  hc_add_series(df1, "spline", hcaes(x = x, y = y), name = "Q = 2P - 55", color = "blue",
+                marker = list(enabled = FALSE)) %>%
+  hc_add_series(df2, "spline", hcaes(x = x, y = y), name = "2Q + 3P = 100", color = "red",
+                marker = list(enabled = FALSE)) %>%
+  hc_add_series(df_sol, "scatter", hcaes(x = x, y = y),
+                name = paste0("Solución (", round(sol[2],3), ", ", round(sol[1],3), ")"),
+                marker = list(symbol = "circle", radius = 6, fillColor = "orange")) %>%
+  hc_add_series(puntos_a, "scatter", hcaes(x = x, y = y, name = label),
+                showInLegend = FALSE,
+                marker = list(symbol = "diamond", radius = 6, fillColor = "orange"),
+                dataLabels = list(enabled = TRUE, format = "{point.name}")) %>%
+  hc_add_series(puntos_b, "scatter", hcaes(x = x, y = y, name = label),
+                showInLegend = FALSE,
+                marker = list(symbol = "triangle", radius = 6, fillColor = "orange"),
+                dataLabels = list(enabled = TRUE, format = "{point.name}")
+                ) %>%
+  hc_title(text = "Método gráfico",
+           style = list(fontSize = "18px", fontWeight = "bold")) %>%
+  hc_legend(enabled = TRUE) %>% 
+  hc_xAxis(plotLines = list(list(value = 0, color = "darkgrey", width = 2, zIndex = 3))) %>%
+  hc_yAxis(plotLines = list(list(value = 0, color = "darkgrey", width = 2, zIndex = 3))) %>%
+  hc_tooltip(shared = FALSE) %>%
+  hc_plotOptions(series = list(animation = FALSE,
+                               states = list(inactive = list(enabled = FALSE),
+                                             hover = list(animation = list(duration = 0)))))
+```
+:::
+
+## Ejercicio 4.
+
+$$
+\begin{align}
+x+y-z &= -1 \tag{A}\\\\
+-x+2y-2z&=-5 \tag{B}\\\\
+2x+3y+z&=12 \tag{C}\\\\
+\end{align}
+$$
+
+1)  Elegimos una ecuación y despejamos cualquiera de las incógnitas, en este ejemplo despejamos $x$ de la ecuación A
+
+$$
+\begin{align}
+x+y-z &= -1 \tag{A}\\\\
+x&=-1-y+z \tag{A1}
+\end{align}
+$$ 2) Sustituimos el valor de $x$ en la ecuación B
+
+$$
+\begin{align}
+-x+2y-2z&=-5 \tag{B}\\\\
+-(-1-y+z)+2y-2z&=-5 \\\\
+1+y-z+2y-2z&=-5 \\\\
+3y-3z&=-5-1 \\\\
+3(y-z)&=-6 \\\\
+y-z&=-\frac{6}{3}=-2 \\\\
+y&=-2+z \tag{B1}
+\end{align}
+$$
+
+Noten como se redujo el número de incógnitas entre la ecuación A1 y B1, esto es un indicador importante de que estamos avanzando hacia la solución del sistema.
+
+3)  En la ecuación C, sustituimos los valores de $x$ e $y$ que obtuvimos en las ecuaciones A1 y B1
+
+$$
+\begin{align}
+2x+3y+z&=12 \tag{C}\\\\
+2(-1-y+z)+3(-2+z)+z&=12 \\\\
+-2-2y+2z-6+3z+z&=12 \\\\
+6z-2y&=12+8 \tag{*} \\\\
+6z-2(-2+z)&=20 \\\\
+6z+4-2z&=20 \\\\
+4z&=20-4 \\\\
+z&=\frac{16}{4}=4 \tag{C1}
+\end{align}
+$$
+
+Es posible que al sustituir obtengamos como resultado una ecuación con dos incógnitas, como en la ecuación marcada con (\*). En estos casos hay que continuar sustituyendo, siempre y cuando conozcamos el valor de alguna de las incógnitas.
+
+4)  La ecuación C1 nos dio como resultado el valor de $z$, con él podemos obtener el valor de $y$ en la ecuación B1 y posteriormente podremos obtener el valor de $x$ en la ecuación A1.
+
+$$
+\begin{align}
+y&=-2+z \tag{B1} \\
+y&=-2+4=2 \\\\
+x&=-1-y+z \tag{A1} \\
+x&=-1-2+4=1
+\end{align}
+$$ **Solución**
+
+$$
+\begin{align}
+x&=1 \\
+y&=2 \\
+z&=4
+\end{align}
+$$
+
+## Ejercicio 5.
+
+$$
+\begin{align}
+2x+3y+z &= 12 \tag{A}\\\\
+-x+y-3z&=4 \tag{B}\\\\
+14x+21y+7z&=84 \tag{C}\\\\
+\end{align}
+$$
+
+Este es un ejemplo de sistema que no tiene solución. Como se ha mencionado en clase, una de las formas para saberlo es identificando que una de las ecuaciones es múltiplo de otra. En este sistema, si multiplicamos la ecuación A por 7 obtenemos la ecuación C.
+
+$$
+\begin{align}
+2x+3y+z &= 12 \tag{A}\\
+7(2x+3y+z) &= 7(12)\\
+14x+21y+7z&=84\\\\
+\end{align}
+$$
+
+También podemos hacer la operación inversa (división) en la ecuación C.
+
+$$
+\begin{align}
+14x+21y+7z&=84 \tag{C}\\\\
+\frac{1}{7}(14x+21y+7z)&=\frac{84}{7} \\\\
+2x+3y+z &= 12
+\end{align}
+$$
+
+No importa la operación que realicen o la ecuación que elijan para comprobar, lo importante es que **realicen la operación en ambos términos de la ecuación**.

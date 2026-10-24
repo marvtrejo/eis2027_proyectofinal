@@ -1,0 +1,79 @@
+/*-- scss:defaults --*/
+/* 1. Importación de tipografías */
+@import url('https://fonts.googleapis.com/css2?family=Gabarito:wght@400;700&family=Inter:wght@400;500;700&display=swap');
+
+/* 2. Variables de Tipografía */
+$font-family-sans-serif: 'Inter', sans-serif !default;
+$headings-font-family:   'Gabarito', serif !default;
+$headings-font-weight:   700 !default;
+$font-size-base:         1rem !default;
+$line-height-base:       1.6 !default;
+
+/* 3. Variables de Color Globales */
+$primary:       #002B7A !default; /* Acento principal*/
+$body-bg:       #ffffff !default; /* Fondo del sitio */
+$body-color:    #333333 !default; /* Color del texto general */
+$headings-color:#D59F0F !default; /* Color de H1, H2, H3... */
+$link-color:    $primary !default;
+
+/* 4. Estilos de componentes nativos */
+$card-border-radius:     8px !default;
+$card-border-color:      #eaeaea !default;
+
+/* 5. Colores de la barra de navegación */
+$navbar-fg: #ffffff !default; /* Enlaces */
+$navbar-hl: #d4af37 !default; /* Hover */
+
+
+/*-- scss:rules --*/
+/* Reglas CSS estándar para ajustes específicos que las variables no cubren */
+
+a {
+  transition: color 0.2s ease-in-out;
+}
+
+.quarto-listing-cards .card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quarto-listing-cards .card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(0, 128, 128, 0.12); 
+}
+
+.navbar-brand img {
+  max-height: 80px;
+}
+
+/* Tablas Markdown */
+table.table {
+  border-bottom: 2px solid $primary;
+}
+table.table th {
+  background-color: #f8f9fa;
+  border-top: 2px solid $primary;
+}
+
+
+/* Color del título principal en la barra de navegación */
+.navbar-brand .navbar-title {
+  color: #d4af37; 
+  font-weight: 700;
+}
+
+/* Color del título dentro de la franja gruesa inferior */
+.quarto-title-block .title {
+  color: #d4af37; 
+}
+
+/* Efecto flotante para botones */
+.btn-flotante {
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08); /* Sombra base muy discreta */
+}
+
+.btn-flotante:hover {
+  transform: translateY(-4px); /* Eleva el botón 4 pixeles hacia arriba */
+  box-shadow: 0 10px 20px rgba(181, 153, 87, 0.2); /* Sombra más amplia y entintada con tu color primario */
+}

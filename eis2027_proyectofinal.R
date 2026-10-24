@@ -1,5 +1,13 @@
 #' ---
-#' title: "Bloque I: transferencias públicas y desigualdad (ENIGH 2022 y 2024)"
+#' title: "Transferencias públicas y desigualdad en hogares con personas de 65+"
+#' subtitle: "Especialización en Desarrollo Social - Facultad de Economía, UNAM"
+#' author:
+#'   - Del Monte Betancourt Héctor Jair
+#'   - Navarrete Aldo Giovany
+#'   - Pliego Alcántara Daniel
+#'   - Trejo Mendez Marvin Ivan
+#' date: "2026-10-23"
+#' lang: es
 #' format:
 #'   html:
 #'     toc: true
@@ -9,55 +17,233 @@
 #'   warning: false
 #'   message: false
 #' ---
+#' # 0. Configuración inicial
 #' 
-#' # Configuración inicial
+#' Antes de ejecutar el script, cambiar `RUTA` por la carpeta que contiene las bases. Es el único valor que debe editarse.
 #' 
 ## --------------------------------------------------------------------------------------------
-#| label: setup
-# ruta <- "C:/RUTA/A/LA/CARPETA"   # ÚNICO valor editable: carpeta con las bases
-# setwd(ruta)
 
-library(dplyr); library(survey); library(convey)
-library(dineq); library(flextable); library(ggplot2)
+# setwd(RUTA)
+
+#' #' 
+#' ## --------------------------------------------------------------------------------------------
+
+#' 
+#' ## Procesamiento
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: paquetes
+#| code-fold: false
+
+library(dplyr)
 library(tidyr)
+library(survey)
+library(convey)
+library(dineq)
+library(flextable)
+library(ggplot2)
+library(ggtext)
 
-# options(survey.lonely.psu = "adjust")  # solo si svydesign marca "single PSU"
+#' 
+#' ## Presentación visual
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: visualizacion
 
-# Factores de deflactación (PROVISIONAL = nominal; Marvin los sustituye).
-# Convención: se DIVIDE entre el factor; el año base vale 1.
-def22 <- 1
-def24 <- 1
+# Estilo de graficas y tablas 
+
+inegi_col <- c(titulo = "#003057", 
+               texto = "#27251F", 
+               secundario = "#4D565E", 
+               eje = "#7A8A96",
+               division = "#8696A2", 
+               umbral = "#B72F05", 
+               referencia = "#C0C0C0")
+
+cat_inegi   <- c("#08989C", 
+                 "#003057", 
+                 "#9F2578", 
+                 "#DB551E",
+                 "#207A63", 
+                 "#6342FF")  
+
+pt_linea    <- function(pt) pt * 96 / 72 / ggplot2::.pt                 
+
+ancho_barra <- .75
+
+dodge <- position_dodge(.8)
+
+pal        <- c(`2022` = cat_inegi[1], `2024` = cat_inegi[2])
+
+pal_pob    <- c(`Hogares con 65+` = cat_inegi[1], 
+                `Sin 65+` = cat_inegi[2])
+
+pal_tipo   <- c(Ninguna = inegi_col[["referencia"]], 
+                `Solo jubilación` = cat_inegi[1],
+                `Solo programas` = cat_inegi[2], 
+                Ambas = cat_inegi[3])
+
+pal_fuente <- c(Jubilaciones = cat_inegi[1], 
+                `Programas gob.` = cat_inegi[2],
+                `Otras transferencias` = cat_inegi[4])
+
+# Tema de gráficas
+
+theme_inegi <- function(orientacion = "v") {
+  v   <- orientacion == "v"
+  div <- element_line(colour = inegi_col[["division"]], 
+                      linewidth = pt_linea(1), 
+                      linetype = "22")
+  txt <- function(size, ...) 
+    element_text(size = size, 
+                 colour = inegi_col[["secundario"]], ...)
+  caja <- function(size, col, halign, ...) 
+    element_textbox_simple(size = size, 
+                           colour = col,
+                           halign = halign, lineheight = 1.1, ...)
+  theme_minimal(base_family = "sans", base_size = 9) +
+    theme(plot.title    = caja(11, 
+                               inegi_col[["titulo"]], 
+                               .5, 
+                               margin = margin(b = 3)),
+          plot.subtitle = caja(10, 
+                               inegi_col[["texto"]], 
+                               .5, 
+                               margin = margin(b = 10)),
+          plot.caption  = caja(8, 
+                               inegi_col[["secundario"]], 
+                               0, 
+                               margin = margin(t = 10)),
+          plot.title.position = "plot", 
+          plot.caption.position = "plot",
+          plot.background = element_rect(fill = "white", colour = NA),
+          axis.line  = element_line(colour = inegi_col[["eje"]],
+                                    linewidth = pt_linea(1)),
+          axis.ticks = element_blank(), 
+          axis.title = txt(9, face = "bold"), 
+          axis.text = txt(8),
+          panel.grid.minor   = element_blank(),
+          panel.grid.major.x = if (v) element_blank() else div,
+          panel.grid.major.y = if (v) div else element_blank(),
+          strip.text = txt(9, face = "bold"),
+          legend.position = "bottom", 
+          legend.title = element_blank(), 
+          legend.text = txt(9, face = "bold"))
+}
+
+tema   <- theme_inegi("v") 
+tema_h <- theme_inegi("h")
+
+# Encabezado. pie de gráficas, nota y fuente
+
+inegi_labs <- function(numero, 
+                       titulo, 
+                       periodo = "2022 y 2024", 
+                       unidad = NULL, 
+                       nota = NULL, ...)
+  labs(title = sprintf(
+    "<span style='font-size:10pt'>%s</span><br>**%s**",
+    numero, titulo),
+       subtitle = paste(c(
+         periodo, if (!is.null(unidad))
+           sprintf("<span style='font-size:9pt'>(%s)</span>", 
+                                    unidad)),
+                        collapse = "<br>"),
+       caption  = paste(c(
+         if (!is.null(nota)) paste("Nota:", nota), fuente), 
+         collapse = "<br>"), ...)
+
+# Tablas
+
+set_flextable_defaults(font.family = "Arial", 
+                       font.size = 9, 
+                       font.color = inegi_col[["texto"]])
+
+estilo_ft <- function(ft) {
+  nb <- nrow_part(ft, "body") 
+  nh <- nrow_part(ft, "header")
+  num <- which(sapply(ft$body$dataset[ft$col_keys], is.numeric))
+  ft <- ft %>% border_remove() %>%
+    bg(bg = "#80DDD7", part = "header") %>%
+    bg(i = nh, bg = if (nh > 1) "#BDEDEA" 
+       else "#80DDD7", part = "header") %>%   
+    bold(part = "header") %>% 
+    color(color = "black", part = "header") %>%
+    align(align = "center", part = "header") %>%
+    border_inner(border = officer::fp_border(color = "white", 
+                                             width = 1.5), 
+                 part = "header") %>%
+    bg(i = seq_len(nb) %% 2 == 0, bg = "#F2F2F2", part = "body")        
+  if (length(num)) ft <- align(ft, 
+                               j = num, 
+                               align = "right", 
+                               part = "body")
+  if (nb %% 2 == 1) 
+    ft <- hline_bottom(ft, 
+                       border = officer::fp_border(color = "#C0C0C0",
+                                                   width = 1), 
+                       part = "body")
+  ft
+}
+
+# Título de cuadros
+
+titulo_ft <- function(ft, x) {
+  p   <- regmatches(x, regexec("^(Cuadro [0-9.]+)\\. (.*)$", x))[[1]]
+  lin <- if (length(p)) p[2:3] else x
+  n   <- length(lin)
+  ft %>%
+    add_header_lines(lin) %>%
+    bg(i = 1:n, bg = "white", part = "header") %>%
+    color(i = 1:n, color = inegi_col[["titulo"]], part = "header") %>%
+    align(i = 1:n, align = "left", part = "header") %>%
+    fontsize(i = 1:n, size = 10, part = "header") %>%
+    fontsize(i = n, size = 11, part = "header") %>%
+    bold(i = 1:n, bold = FALSE, part = "header") %>%
+    bold(i = n, part = "header")
+}
+
+pie_ft <- function(ft) ft %>% 
+  fontsize(size = 8, part = "footer") %>%
+  color(color = inegi_col[["secundario"]], part = "footer")
+
+#' 
+#' ## Fuente de información
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: fuentes
+#| code-fold: false
 
 base22 <- read.csv("concentradohogar22.csv")
 base24 <- read.csv("concentradohogar24.csv")
 
-precision <- function(cv) case_when(is.na(cv) ~ "–", 
-                                    cv < 15 ~ "Alta", 
-                                    cv < 30 ~ "Moderada", 
-                                    TRUE ~ "Baja")
-
-semaforo <- function(ft, cols) {           
-  for (j in cols) {
-    x <- ft$body$dataset[[j]]
-    ft <- ft %>% bg(i = !is.na(x) & x >= 15 & x < 30, j = j, bg = "#FFF2CC") %>%
-                 bg(i = !is.na(x) & x >= 30, j = j, bg = "#FCE4D6")
-  }
-  ft
-}
+fuente <- "Fuente: elaboración propia con datos de INEGI. Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH), 2022 y 2024."
 
 #' 
+#' ## Deflactación
+#' 
+#' INPC anual base 2018.
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: deflactores
+#| code-fold: false
+
+def22 <- 1.2219539032448
+def24 <- 1.33989337825153
 
 #' 
-#' # Tarea 0: Preparar las bases
+#' ## Variables construidas
 #' 
 ## --------------------------------------------------------------------------------------------
 #| label: t0-prep
-# Variables de ingreso a deflactar (todas las fuentes, un factor por año)
+#| code-fold: false
+
+# Variables de ingreso a deflactar
 comp_trans <- c("jubilacion", 
                 "bene_gob", 
                 "becas", 
-                "donativos", 
-                "remesas",
+                "donativos",
+                "remesas", 
                 "transf_hog", 
                 "trans_inst")
 
@@ -67,44 +253,60 @@ fuentes    <- c("ingtrab",
                 "estim_alqu", 
                 "otros_ing")
 
-ing_vars   <- c("ing_cor", 
-                fuentes, 
-                comp_trans)
+ing_vars   <- c("ing_cor", fuentes, comp_trans)
 
-# Variables mínimas: si falta o no es numérica, falla aquí y no más adelante
-req <- c(ing_vars, 
-         "p65mas", 
-         "tot_integ", 
-         "tam_loc", 
-         "upm", 
-         "est_dis", 
-         "factor")
-
-for (b in list(base22, base24))
-  stopifnot(all(req %in% names(b)), 
-            all(sapply(b[req], 
-                       is.numeric)
-                )
-            )
-
-# Todo lo derivado se crea ANTES de svydesign() (crear columnas no es filtrar)
-prep <- function(b, def) b %>% 
-  mutate(across(all_of(ing_vars), ~ .x / def),
-         otras  = transfer - jubilacion - bene_gob,   # por confirmar
-         ictpc  = ing_cor / tot_integ,
-         uno = 1,
-         g65    = as.numeric(p65mas > 0),
-         tam_loc = as.numeric(tam_loc),
-         # deciles nacionales: TODOS los hogares, ictpc deflactado, ponderados por factor
-         decil  = ntiles.wtd(ictpc, n = 10, weights = factor),
-         recibe_jub = as.numeric(jubilacion > 0), 
-         recibe_bene = as.numeric(bene_gob > 0)
-         )
+prep <- function(b, def) b %>%
+  mutate(
+    # Deflactación
+    across(all_of(ing_vars), ~ .x / def),
+    
+    # Desagregación de las transferencias
+    otras    = transfer - jubilacion - bene_gob,
+    
+    # Auxiliares y grupo de interés
+    uno      = 1,
+    g65      = as.numeric(p65mas > 0),
+    g65f     = factor(g65, 0:1, c("Sin 65+", "Con 65+")),
+    
+    # Ubicación en la distribución
+    decil    = ntiles.wtd(ing_cor, n = 10, weights = factor),
+    tramo    = cut(decil, c(0, 3, 7, 10), 
+                   labels = c("I–III", "IV–VII", "VIII–X")),
+    
+    # Escenarios de análisis
+    ing_sin_bene  = ing_cor - bene_gob,
+    ing_sin_jub   = ing_cor - jubilacion,
+    ing_sin_trans = ing_cor - transfer,
+    
+    # Otras variables
+    recibe_jub  = as.numeric(jubilacion > 0),
+    recibe_bene = as.numeric(bene_gob > 0),
+    tipo_tr  = factor(recibe_jub + 2 * recibe_bene, 0:3,
+                      c("Ninguna", 
+                        "Solo jubilación", 
+                        "Solo programas", 
+                        "Ambas")),
+    tam_loc  = as.numeric(tam_loc),
+    ambito   = factor(if_else(tam_loc == 4, "Rural", "Urbano")),
+    tipo_amb = interaction(tipo_tr, ambito, sep = " / ", drop = TRUE),
+    jefatura = factor(sexo_jefe, 1:2, c("Hombre", "Mujer"))) %>%
+  
+  # Deciles de cada escenario
+  mutate(across(starts_with("ing_sin"), 
+                ~ ntiles.wtd(.x, n = 10, 
+                             weights = factor),
+                .names = "decil_{.col}"))
 
 base22 <- prep(base22, def22)
 base24 <- prep(base24, def24)
 
-# Diseño muestral → convey_prep → subset (orden del profesor)
+#' 
+#' ## Diseño muestral y estimación
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t0-disenio
+#| code-fold: false
+
 disenio <- function(b)
   svydesign(ids = ~upm, 
             strata = ~est_dis, 
@@ -112,159 +314,1311 @@ disenio <- function(b)
             data = b) %>%
   convey_prep()
 
-d22 <- disenio(base22);  g22 <- subset(d22, p65mas > 0)   # grupo = subpoblación
-d24 <- disenio(base24);  g24 <- subset(d24, p65mas > 0)
+d22 <- disenio(base22)  
+g22 <- subset(d22, p65mas > 0)
+
+d24 <- disenio(base24)  
+g24 <- subset(d24, p65mas > 0)
+
+disenios <- list(`2022` = d22, `2024` = d24)
+grupos   <- list(`2022` = g22, `2024` = g24)
 
 #' 
+#' ## Precisión, intervalos y pruebas
+#' 
 ## --------------------------------------------------------------------------------------------
-#| label: t0-verifica
-# Cuadro 1: verificación de las bases
-verifica <- function(b) c(
-  "Hogares en la muestra"              = nrow(b),
-  "Hogares expandidos"                 = sum(b$factor),
-  "Personas expandidas (tot_integ)"    = sum(b$factor * b$tot_integ),
-  "Hogares del grupo (muestra)"        = sum(b$p65mas > 0),
-  "Hogares del grupo (expandidos)"     = sum(b$factor[b$p65mas > 0]),
-  "Máx. |ing_cor − suma de fuentes|"   = max(abs(b$ing_cor - rowSums(b[fuentes]))),
+#| label: precision
+
+z       <- qnorm(.975)
+
+nota_cv <- "Precisión según criterio INEGI: alta CV < 15, moderada 15 ≤ CV < 30, baja CV ≥ 30."
+
+precision <- function(cv) case_when(is.na(cv) ~ "–",
+                                    cv < 15   ~ "Alta",
+                                    cv < 30   ~ "Moderada",
+                                    cv >= 30  ~ "Baja")
+
+semaforo <- function(ft, cols) {
+  for (j in cols) {
+    x <- ft$body$dataset[[j]]
+    ft <- ft %>% bg(i = !is.na(x) & x >= 15 & x < 30, 
+                    j = j, 
+                    bg = "#FFF2CC") %>%
+                 bg(i = !is.na(x) & x >= 30, 
+                    j = j, 
+                    bg = "#FCE4D6")
+  }
+  ft
+}
+
+#' 
+#' ## Verificación de los datos
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t0-verificacion
+descripcion <- function(b) c(
+  "Hogares en la muestra"                 = nrow(b),
+  "Hogares expandidos"                    = sum(b$factor),
+  "Personas expandidas (tot_integ)"       = sum(b$factor * b$tot_integ),
+  "Hogares del grupo (muestra)"           = sum(b$p65mas > 0),
+  "Hogares del grupo (expandidos)"        = sum(b$factor[b$p65mas > 0]),
+  "Máx. |ing_cor − suma de fuentes|"      = max(abs(b$ing_cor - rowSums(b[fuentes]))),
   "Máx. |transfer − suma de componentes|" = max(abs(b$transfer - rowSums(b[comp_trans]))),
   "% hogares con ing_cor = 0 (ponderado)" = 100 * sum(b$factor[b$ing_cor == 0]) / sum(b$factor))
 
-v <- sapply(list("2022" = base22, "2024" = base24), verifica)
-cuadro1_df <- data.frame(Indicador = rownames(v), v, check.names = FALSE)
+verificacion0 <- sapply(list("2022" = base22, "2024" = base24), descripcion)
 
-cuadro1 <- flextable(cuadro1_df) %>%
-  theme_vanilla() %>%
+cuadro0_df <- data.frame(Indicador = rownames(verificacion0), verificacion0, check.names = FALSE)
+
+cuadro0_1 <- flextable(cuadro0_df) %>%
+  estilo_ft() %>%
   colformat_double(big.mark = ",", digits = 2) %>%
-  set_caption("Cuadro 1. Verificación de las bases ENIGH 2022 y 2024") %>%
-  add_footer_lines("Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.") %>%
-  fontsize(size = 9, part = "footer")
-cuadro1
+  titulo_ft("Cuadro 0.1. Verificación de los datos de la ENIGH 2022 y 2024") %>%
+  add_footer_lines(fuente) %>%
+  pie_ft()
+cuadro0_1
 
-dir.create("salidas", showWarnings = FALSE)
-saveRDS(cuadro1_df, "salidas/cuadro1.rds")
-
-#' 
-#' # Tarea 1: tamaño del grupo
-#' ## Cuadro 2
+#' ## Cotejo con tabulados INEGI
 #' 
 ## --------------------------------------------------------------------------------------------
-#| label: t1-cuadro2
+#| label: t0-cotejo_inegi
+tab_inegi <- data.frame(anio    = c("2022", "2024"),
+                        hogares = c(37560123, 38830230),
+                        gini    = c(0.402, 0.391))
+
+cotejo_inegi <- tab_inegi %>%
+  mutate(hogares_propio = sapply(list(base22, base24), 
+                                 \(b) sum(b$factor)),
+         gini_propio    = sapply(disenios, 
+                                 \(d) coef(svygini(~ing_cor, d)))
+         )
+
+
+cuadro0_2_df <- with(cotejo_inegi, data.frame(
+  Indicador = rep(c("Hogares", "Coeficiente de Gini"), each = 2),
+  Año       = rep(anio, 2),
+  `Tabulado INEGI`    = c(hogares, gini),
+  `Estimación propia` = c(hogares_propio, gini_propio),
+  check.names = FALSE)) %>%
+  mutate(Diferencia = `Estimación propia` - `Tabulado INEGI`)
+
+cuadro0_2 <- flextable(cuadro0_2_df) %>%
+  merge_v(j = "Indicador") %>%
+  estilo_ft() %>%
+  colformat_double(i = 1:2, digits = 0, big.mark = ",", na_str = "ND") %>%
+  colformat_double(i = 3:4, digits = 3, na_str = "ND") %>%
+  titulo_ft("Cuadro 0.2. Cotejo con los tabulados básicos de la ENIGH (INEGI)") %>%
+  add_footer_lines(fuente) %>%
+  pie_ft() %>%
+  autofit()
+cuadro0_2
+
+
+#' 
+#' # 1. Tamaño del grupo y precisión de las estimaciones
+#' 
+#' ## 1.1 Características del grupo y del resto de los hogares
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t1-calculo
 
 vars_t1 <- ~ing_cor + transfer + jubilacion + bene_gob + recibe_jub + recibe_bene + tot_integ + p65mas
-etq <- c(n = "Muestra (n)", uno = "Hogares expandidos", g65 = "% de hogares del país",
-         ing_cor = "Ingreso corriente medio", transfer = "Transferencias medias",
-         jubilacion = "Jubilaciones medias", bene_gob = "Programas gob. medios",
-         recibe_jub = "Cobertura jubilación (%)", recibe_bene = "Cobertura prog. gob. (%)",
-         tot_integ = "Integrantes del hogar", p65mas = "Personas 65+ por hogar")
 
-fila <- function(x) data.frame(ind = names(coef(x)), est = coef(x),
-                               se = as.numeric(SE(x)), cv = as.numeric(cv(x)) * 100)
+etq <- c(n           = "Muestra (n)",
+         uno         = "Hogares expandidos",
+         g65         = "% de hogares del país",
+         ing_cor     = "Ingreso corriente medio",
+         transfer    = "Transferencias medias",
+         jubilacion  = "Jubilaciones medias",
+         bene_gob    = "Programas gob. medios",
+         recibe_jub  = "Cobertura jubilación (%)",
+         recibe_bene = "Cobertura prog. gob. (%)",
+         tot_integ   = "Integrantes del hogar",
+         p65mas      = "Personas 65+ por hogar")
+
+fila <- function(x) data.frame(ind = names(coef(x)),
+                               est = coef(x),
+                               se  = as.numeric(SE(x)),
+                               cv  = as.numeric(cv(x)) * 100)
 
 t1 <- function(d) {
   lapply(c(resto = 0, grupo = 1), function(k) {
     s <- subset(d, g65 == k)
     bind_rows(data.frame(ind = "n", est = sum(weights(s) > 0)),
-              fila(svytotal(~uno, s)), fila(svymean(vars_t1, s)))
+              fila(svytotal(~uno, s)),
+              fila(svymean(vars_t1, s)))
   }) %>%
     bind_rows(.id = "pob") %>%
     bind_rows(data.frame(pob = "grupo", fila(svymean(~g65, d))))
 }
 
-cuadro2_df <- lapply(list(`2022` = d22, `2024` = d24), t1) %>%
+cuadro1_df <- lapply(disenios, t1) %>%
   bind_rows(.id = "anio") %>%
-  mutate(across(c(est, se), ~ if_else(ind %in% c("g65", "recibe_jub", "recibe_bene"), .x * 100, .x)),
-         across(c(est, se, cv), ~ if_else(pob == "resto" & ind == "p65mas", NA_real_, .x)),
+  mutate(across(c(est, se),
+                ~ if_else(ind %in% c("g65", 
+                                     "recibe_jub", 
+                                     "recibe_bene"), 
+                          .x * 100, .x)),
+         across(c(est, se, cv),
+                ~ if_else(pob == "resto" & ind == "p65mas", 
+                          NA_real_, 
+                          .x)),
          prec = precision(cv)) %>%
   arrange(anio, match(ind, names(etq))) %>%
   mutate(ind = etq[ind]) %>%
   pivot_wider(names_from = pob, values_from = c(est, se, cv, prec)) %>%
   select(anio, ind, ends_with("resto"), ends_with("grupo"))
 
-# Verificación: grupo + resto = total de hogares
-stopifnot(isTRUE(all.equal(
-  filter(cuadro2_df, ind == "Hogares expandidos") %>% with(est_resto + est_grupo),
-  c(sum(base22$factor), sum(base24$factor)), check.attributes = FALSE)))
-
 #' 
-#' ## Prueba de hipótesis
+#' ## 1.2 Diferencia en el tamaño del hogar
+#' 
 ## --------------------------------------------------------------------------------------------
 #| label: t1-prueba
-tt <- lapply(list(`2022` = d22, `2024` = d24), function(d) svyttest(tot_integ ~ g65, d))
+
+tt <- lapply(disenios, function(d) svyttest(tot_integ ~ g65, d))
+
 nota_tt <- sapply(names(tt), function(a) with(tt[[a]], sprintf(
   "%s: diferencia grupo − resto en integrantes = %.2f (IC 95%%: %.2f a %.2f; p %s).",
   a, estimate, conf.int[1], conf.int[2],
   if (p.value < .001) "< 0.001" else sprintf("= %.3f", p.value))))
 
 #' 
-#' 
-#' ## Tabla 2
+#' ## Cuadro 1.1 Características de los hogares con 65+ y del resto
 #' 
 ## --------------------------------------------------------------------------------------------
-#| label: t1-tabla2
+#| label: t1-cuadro
 
-cuadro2 <- flextable(cuadro2_df) %>%
-  set_header_labels(anio = "Año", ind = "Indicador",
-                    est_resto = "Estimación", se_resto = "EE", cv_resto = "CV (%)", prec_resto = "Precisión",
-                    est_grupo = "Estimación", se_grupo = "EE", cv_grupo = "CV (%)", prec_grupo = "Precisión") %>%
-  add_header_row(values = c("", "Resto de los hogares", "Hogares con 65+"), colwidths = c(2, 4, 4)) %>%
+cuadro1_1 <- flextable(cuadro1_df) %>%
+  set_header_labels(anio = "Año", 
+                    ind = "Indicador",
+                    est_resto = "Estimación", 
+                    se_resto = "EE",
+                    cv_resto = "CV (%)", 
+                    prec_resto = "Precisión",
+                    est_grupo = "Estimación", 
+                    se_grupo = "EE",
+                    cv_grupo = "CV (%)", 
+                    prec_grupo = "Precisión") %>%
+  add_header_row(values = c("", 
+                            "Resto de los hogares", 
+                            "Hogares con 65+"),
+                 colwidths = c(2, 4, 4)) %>%
   merge_v(j = "anio") %>%
-  theme_vanilla() %>%
-  colformat_double(digits = 2, big.mark = ",") %>%
-  colformat_double(i = ~ ind %in% c("Muestra (n)", "Hogares expandidos"),
-                   j = c("est_resto", "est_grupo"), digits = 0, big.mark = ",") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2, big.mark = ",", na_str = "–") %>%
+  colformat_double(i = ~ ind %in% c("Muestra (n)", 
+                                    "Hogares expandidos"),
+                   j = c("est_resto", "est_grupo"), 
+                   digits = 0, 
+                   big.mark = ",") %>%
   semaforo(c("cv_resto", "cv_grupo")) %>%
-  set_caption("Cuadro 2. Tamaño del grupo y precisión de las estimaciones, ENIGH 2022 y 2024") %>%
+  titulo_ft("Cuadro 1.1. Características de los hogares con 65+ y del resto de los hogares, ENIGH 2022 y 2024") %>%
   add_footer_lines(c(
-    "Nota: grupo = hogares con al menos un integrante de 65 años o más. Montos en pesos corrientes trimestrales por hogar. Las medias de transferencias incluyen hogares que no las reciben (valor 0); cobertura = % de hogares con monto > 0. EE: error estándar. Precisión según criterio INEGI (alta < 15, moderada 15–30, baja ≥ 30).",
-    nota_tt,
-    "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.")) %>%
-  fontsize(size = 9, part = "footer") %>%
+    paste("Nota: grupo = hogares con al menos un integrante de 65 años o más. Montos trimestrales por hogar en pesos de agosto de 2018. Las medias de transferencias incluyen hogares que no las reciben (valor 0); cobertura = % de hogares con monto > 0. EE: error estándar.", nota_cv),
+    nota_tt, fuente)) %>%
+  pie_ft() %>%
   autofit()
-cuadro2
+
+cuadro1_1
 
 #' 
-#' ## Deciles
+#' 
+#' ## 1.3 Precisión de las estimaciones por decil
 #' 
 ## --------------------------------------------------------------------------------------------
 #| label: t1-decil
 
 t1_decil <- function(g) {
-  cvs <- svyby(~jubilacion + bene_gob, ~decil, g, svymean, vartype = "cv")
-  data.frame(decil = as.character(as.roman(cvs$decil)),
-             n = svyby(~uno, ~decil, g, unwtd.count)[[2]],
-             cv_jub = cvs$cv.jubilacion * 100, cv_bene = cvs$cv.bene_gob * 100) %>%
+  cvs <- svyby(~jubilacion + bene_gob, 
+               ~decil, 
+               g, 
+               svymean, 
+               vartype = "cv")
+  data.frame(decil   = as.character(as.roman(cvs$decil)),
+             n       = svyby(~uno, ~decil, g, unwtd.count)[[2]],
+             cv_jub  = cvs$cv.jubilacion * 100,
+             cv_bene = cvs$cv.bene_gob * 100) %>%
     mutate(prec_jub = precision(cv_jub), .after = cv_jub) %>%
     mutate(prec_bene = precision(cv_bene))
 }
 
-cuadro3_df <- lapply(list(`2022` = g22, `2024` = g24), t1_decil) %>%
+cuadro1_2_df <- lapply(grupos, t1_decil) %>%
   bind_rows(.id = "anio") %>%
   pivot_wider(names_from = anio, values_from = -c(anio, decil), names_vary = "slowest")
 
-cuadro3 <- flextable(cuadro3_df) %>%
+cuadro1_2 <- flextable(cuadro1_2_df) %>%
   set_header_labels(values = c(decil = "Decil", setNames(
-    rep(c("n", "CV % Jub.", "Precisión", "CV % Prog.", "Precisión"), 2), names(cuadro3_df)[-1]))) %>%
+    rep(c("n", "CV % Jub.", "Precisión", "CV % Prog.", "Precisión"), 2),
+    names(cuadro1_2_df)[-1]))) %>%
   add_header_row(values = c("", "2022", "2024"), colwidths = c(1, 5, 5)) %>%
-  theme_vanilla() %>%
+  estilo_ft() %>%
   colformat_double(digits = 2) %>%
   colformat_double(j = c("n_2022", "n_2024"), digits = 0, big.mark = ",") %>%
-  semaforo(grep("^cv", names(cuadro3_df), value = TRUE)) %>%
-  set_caption("Cuadro 3. Coeficiente de variación (%) de las medias de jubilación y programas gubernamentales por decil nacional, hogares con 65+, ENIGH 2022 y 2024") %>%
-  add_footer_lines(c("Nota: deciles nacionales de ingreso corriente per cápita (todos los hogares). n = hogares en muestra del grupo en cada decil.",
-                     "Fuente: elaboración propia con datos de la ENIGH 2022 y 2024, INEGI.")) %>%
-  fontsize(size = 9, part = "footer") %>%
+  semaforo(grep("^cv", names(cuadro1_2_df), value = TRUE)) %>%
+  titulo_ft("Cuadro 1.2. Coeficiente de variación (%) de las medias de jubilación y programas gubernamentales por decil nacional, hogares con 65+, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    paste("Nota: deciles nacionales de ingreso corriente total del hogar (todos los hogares). n = hogares del grupo en muestra en cada decil.", nota_cv),
+    fuente)) %>%
+  pie_ft() %>%
   autofit()
-cuadro3
 
-saveRDS(list(cuadro2 = cuadro2_df, cuadro3 = cuadro3_df, ttest = tt), "t1_resultados.rds")
+cuadro1_2
 
 #' 
-#' ## Por analizar
+#' ## 1.4 Hogares según la transferencia que reciben
 #' 
 ## --------------------------------------------------------------------------------------------
-#| label: t1-pendiente
+#| label: t1-tipo
 
-svymean(~interaction(recibe_jub, recibe_bene), g24)
-svymean(~interaction(recibe_jub, recibe_bene), g22)
+cuadro1_3_df <- lapply(grupos, function(g) fila(svymean(~tipo_tr, g))) %>%
+  bind_rows(.id = "anio") %>%
+  mutate(ind = sub("tipo_tr", "", ind),
+         across(c(est, se), ~ .x * 100),
+         prec = precision(cv)) %>%
+  pivot_wider(names_from = anio, values_from = c(est, se, cv, prec), names_vary = "slowest")
+
+cuadro1_3 <- flextable(cuadro1_3_df) %>%
+  set_header_labels(values = c(ind = "Recepción", 
+                               setNames(
+                                 rep(c("%", 
+                                       "EE", 
+                                       "CV (%)", 
+                                       "Precisión"), 
+                                     2), 
+                                 names(cuadro1_3_df)[-1]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(1, 4, 4)) %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 1.3. Hogares con 65+ según recepción de jubilación y programas gubernamentales, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Nota: porcentajes del total de hogares del grupo. Programas gubernamentales = bene_gob (incluye programas no dirigidos a adultos mayores). Cortes transversales: los cambios entre años reflejan la composición del grupo, no movimientos de hogares. EE: error estándar.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro1_3
+
+#' 
+#' # 2. Ubicación del grupo en la distribución nacional del ingreso
+#' 
+#' ## Cálculo
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-calculo
+#| code-fold: false
+
+# Por decil nacional
+
+ubica <- function(b, d, g) {
+  dist <- svymean(~factor(decil), g)        
+  comp <- svyby(~g65, ~decil, d, svymean)   
+  b %>% group_by(decil) %>% summarise(lim_sup = max(ing_cor)) %>%
+    mutate(p_g = 100 * coef(dist), se_g = 100 * SE(dist),
+           p_d = 100 * coef(comp), se_d = 100 * SE(comp),
+           cv_g = 100 * se_g / p_g, cv_d = 100 * se_d / p_d,
+           prec_g = precision(cv_g), prec_d = precision(cv_d))
+}
+
+# % del grupo en deciles I–III y VIII–X, y % de hogares del país en el grupo
+
+resume <- function(d, g) {
+  r <- svymean(~I(100 * (decil <= 3)) + I(100 * (decil >= 8)), g)
+  n <- svymean(~I(100 * g65), d)
+  data.frame(indicador = c("Grupo en deciles I–III", 
+                           "Grupo en deciles VIII–X",
+                           "Hogares del país con 65+"),
+             pct = c(coef(r), coef(n)), se = c(SE(r), SE(n))) %>%
+    mutate(li = pct - z * se, ls = pct + z * se, cv = 100 * se / pct, precision = precision(cv))
+}
+
+t2     <- bind_rows(`2022` = ubica(base22, d22, g22), 
+                    `2024` = ubica(base24, d24, g24), 
+                    .id = "anio")
+
+t2_res <- bind_rows(`2022` = resume(d22, g22), 
+                    `2024` = resume(d24, g24), 
+                    .id = "anio")
+
+#' 
+#' ## Cuadros 2.1 y 2.2 Hogares del grupo por decil de ingresos
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-cuadros
+
+tab_t2 <- function(a, n) t2 %>% 
+  filter(anio == a) %>%
+  transmute(decil = as.character(as.roman(decil)), 
+            lim_sup, 
+            p_g,
+            ic = sprintf("%.1f – %.1f", p_g - z * se_g, p_g + z * se_g),
+            cv_g, 
+            prec_g, 
+            p_d, cv_d, 
+            prec_d) %>%
+  flextable() %>% 
+  estilo_ft() %>%
+  set_header_labels(decil = "Decil", 
+                    lim_sup = "Límite superior",
+                    p_g = "% del grupo", 
+                    ic = "IC 95%", 
+                    cv_g = "CV (%)", 
+                    prec_g = "Precisión",
+                    p_d = "% del decil con 65+", 
+                    cv_d = "CV (%)", 
+                    prec_d = "Precisión") %>%
+  colformat_double(j = "lim_sup", 
+                   digits = 0, 
+                   big.mark = ",") %>%
+  colformat_double(j = c("p_g", "cv_g", "p_d", "cv_d"), 
+                   digits = 1) %>%
+  titulo_ft(paste0("Cuadro 2.", n, 
+                     ". Hogares con al menos una persona de 65+ por decil nacional de ingreso, ", a)) %>%
+  add_footer_lines(c("Nota: deciles nacionales de hogares por ingreso corriente total del hogar (trimestral, pesos de 2018), después de transferencias. Límite superior = ingreso máximo observado en el decil.", nota_cv, fuente)) %>%
+  pie_ft() %>% 
+  autofit()
+
+tab_t2("2024", 1)
+tab_t2("2022", 2)
+
+#' 
+#' ## Cuadro 2.3 Concentración del grupo en los extremos de la distribución
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-cuadro-resumen
+
+t2_res %>% flextable() %>% estilo_ft() %>%
+  set_header_labels(anio = "Año", 
+                    indicador = "Indicador", 
+                    pct = "%", 
+                    se = "EE",
+                    li = "LI 95%", 
+                    ls = "LS 95%", 
+                    cv = "CV (%)", 
+                    precision = "Precisión") %>%
+  merge_v(j = "anio") %>%
+  colformat_double(digits = 1) %>%
+  titulo_ft("Cuadro 2.3. Concentración del grupo en los extremos de la distribución, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(nota_cv, fuente)) %>% 
+  pie_ft() %>% 
+  autofit()
+
+#' 
+#' ## Gráfica 2.1 Distribución de los hogares con 65+ por decil
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-grafica2_1
+
+g_t2a <- ggplot(t2, aes(factor(decil), p_g, fill = anio)) +
+  geom_col(position = dodge, width = ancho_barra) +
+  geom_errorbar(aes(ymin = p_g - z * se_g, 
+                    ymax = p_g + z * se_g), 
+                position = dodge, 
+                width = .2,
+                colour = inegi_col[["secundario"]]) +
+  geom_hline(yintercept = 10, 
+             linetype = "dashed", 
+             colour = inegi_col[["secundario"]]) +
+  scale_fill_manual(values = pal) + 
+  scale_x_discrete(labels = as.roman(1:10)) +
+  scale_y_continuous(expand = expansion(mult = c(0, .08))) +
+  inegi_labs("Gráfica 2.1", "Distribución de los hogares con 65+ por decil nacional de ingreso",
+             unidad = "porcentaje de los hogares del grupo",
+             nota = "línea punteada: 10% (sin relación entre grupo y decil). Barras de error: IC 95%.",
+             x = "Decil nacional de ingreso corriente del hogar", 
+             y = NULL) +
+  tema
+
+g_t2a
+
+#' 
+#' ## Gráfica 2.2 Peso de los hogares con 65+ dentro de cada decil
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-grafica2_2
+
+g_t2b <- ggplot(t2, aes(factor(decil), p_d, fill = anio)) +
+  geom_col(position = dodge, width = ancho_barra) +
+  geom_errorbar(aes(ymin = p_d - z * se_d, 
+                    ymax = p_d + z * se_d), 
+                position = dodge, width = .2,
+                colour = inegi_col[["secundario"]]) +
+  geom_hline(data = filter(t2_res, 
+                           indicador == "Hogares del país con 65+"),
+             aes(yintercept = pct, colour = anio), 
+             linetype = "dashed", show.legend = FALSE) +
+  scale_fill_manual(values = pal) + 
+  scale_colour_manual(values = pal) +
+  scale_x_discrete(labels = as.roman(1:10)) +
+  scale_y_continuous(expand = expansion(mult = c(0, .08))) +
+  inegi_labs("Gráfica 2.2", "Peso de los hogares con 65+ dentro de cada decil nacional de ingreso",
+             unidad = "porcentaje de los hogares del decil",
+             nota = "líneas punteadas: porcentaje nacional de hogares con 65+ en cada año. Barras de error: IC 95%.",
+             x = "Decil nacional de ingreso corriente del hogar", 
+             y = NULL) +
+  tema
+
+g_t2b
+
+#' 
+#' ## Gráfica 2.3 Hogares con 65+ según tipo de transferencia
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t2-combinacion
+
+comb_t2 <- function(g) 
+  as.data.frame(prop.table(svytable(~decil + tipo_tr, g), 1)) %>%
+  setNames(c("decil", "tipo", "p")) %>%
+  mutate(p = 100 * p)
+
+t2_comb <- lapply(grupos, comb_t2) %>% bind_rows(.id = "anio")
+
+g_t2c <- ggplot(t2_comb, aes(factor(decil), p, fill = tipo)) +
+  geom_col(width = ancho_barra) + 
+  facet_wrap(~anio) +
+  scale_x_discrete(labels = as.roman(1:10)) +
+  scale_y_continuous(expand = expansion(mult = c(0, .02))) +
+  scale_fill_manual(values = pal_tipo) +
+  inegi_labs("Gráfica 2.3", "Hogares con 65+ según tipo de transferencia, por decil nacional de ingreso",
+             unidad = "porcentaje de los hogares del grupo en el decil",
+             nota = "análisis exploratorio.",
+             x = "Decil nacional de ingreso corriente del hogar", 
+             y = NULL) +
+  tema
+
+g_t2c
 
 
+#' 
+#' # 3. Descomposición de la desigualdad dentro y entre grupos
+#' 
+#' ## Cálculo
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t3-descomp
+#| code-fold: false
+
+pobs3 <- list(Nacional = disenios, `Hogares 65+` = grupos)
+agrup <- 
+  list("Nacional: 65+ vs resto"     = c("Nacional",    "g65f"),
+       "65+: tipo de transferencia" = c("Hogares 65+", "tipo_tr"),
+       "65+: ámbito (urbano/rural)" = c("Hogares 65+", "ambito"),
+       "65+: sexo de la jefatura"   = c("Hogares 65+", "jefatura"),
+       "65+: tipo × ámbito"         = c("Hogares 65+", "tipo_amb"))
+
+etq_c <- c(total = "Total", within = "Dentro", between = "Entre")
+
+# GE(0) y GE(1): total, dentro y entre, con EE del diseño.
+
+t3 <- function(d, g) bind_rows(lapply(c(`GE(0)` = 0, `GE(1) Theil` = 1), function(e) {
+  r <- svygeidec(~ing_cor, g, subset(d, ing_cor > 0), epsilon = e)
+  data.frame(comp = etq_c[names(coef(r))], 
+             est = as.numeric(coef(r)), 
+             se = as.numeric(SE(r)))
+}), .id = "indice")
+
+t3_desc <- lapply(agrup, 
+                  function(a) bind_rows(lapply(pobs3[[a[1]]], 
+                                               t3, 
+                                               g = reformulate(a[2])),
+                                               .id = "anio")) %>%
+  bind_rows(.id = "agrup") %>%
+  group_by(agrup, anio, indice) %>%
+  mutate(pct = 100 * est / est[comp == "Total"], 
+         cv = 100 * se / est) %>%
+  ungroup()
+
+# Hogares en muestra excluidos por ingreso ≤ 0, por población
+excl <- sapply(list(`2022` = base22, `2024` = base24), 
+               function(b)
+                 c(nac = sum(b$ing_cor <= 0), 
+                   g65 = sum(b$ing_cor <= 0 & b$g65 == 1)))
+
+#' 
+#' ## Cuadro 3.1 Descomposición de la desigualdad dentro y entre grupos
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t3-cuadro1
+c3 <- t3_desc %>%
+  select(agrup, indice, comp, anio, est, pct, cv) %>%
+  pivot_wider(names_from = anio, 
+              values_from = c(est, pct, cv), 
+              names_vary = "slowest")
+
+cuadro3_1 <- flextable(c3) %>%
+  set_header_labels(values = c(agrup = "Agrupación", 
+                               indice = "Índice", 
+                               comp = "Componente",
+                               setNames(rep(c("Valor", 
+                                              "% del total", 
+                                              "CV (%)"), 2),
+                                        names(c3)[-(1:3)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(3, 3, 3)) %>%
+  merge_v(j = c("agrup", "indice")) %>%
+  estilo_ft() %>%
+  colformat_double(j = c("est_2022", "est_2024"), digits = 4) %>%
+  colformat_double(j = c("pct_2022", 
+                         "pct_2024", 
+                         "cv_2022", 
+                         "cv_2024"), 
+                   digits = 1) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 3.1. Descomposición de la desigualdad del ingreso corriente del hogar dentro y entre grupos, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    sprintf("Nota: GE(0) = desviación logarítmica media; GE(1) = índice de Theil T. Dentro + entre = total. Se excluyen hogares con ingreso corriente ≤ 0 (en muestra: nacional %d en 2022 y %d en 2024; hogares con 65+ %d y %d). Ámbito rural = localidades de menos de 2,500 habitantes. Unidad: hogares, sin ajuste por tamaño. %s",
+            excl["nac", "2022"], 
+            excl["nac", "2024"], 
+            excl["g65", "2022"], 
+            excl["g65", "2024"], 
+            nota_cv),
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro3_1
+
+#' 
+#' ## Gráfica 3.1 Proporción de la desigualdad explicada por diferencias entre grupos
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t3-grafica3_1
+
+graf3_1 <- t3_desc %>%
+  filter(comp == "Entre") %>%
+  ggplot(aes(x = agrup, y = pct, fill = anio)) +
+  geom_col(position = "dodge", width = ancho_barra) +
+  facet_wrap(~indice) +
+  coord_flip() +
+  scale_fill_manual(values = pal) +
+  scale_y_continuous(expand = expansion(mult = c(0, .08))) +
+  inegi_labs("Gráfica 3.1", 
+             "Proporción de la desigualdad explicada por diferencias entre grupos",
+             unidad = "porcentaje del índice total", 
+             x = NULL, 
+             y = NULL) +
+  tema_h
+
+graf3_1
+
+#' 
+#' ## Cuadro 3.2 Ingreso medio y desigualdad por subgrupo en hogares con 65+
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t3-subgrupos
+
+# Por subgrupo
+sub3 <- function(d, g) {
+  d  <- subset(d, ing_cor > 0)
+  m  <- svyby(~ing_cor, reformulate(g), d, svymean)
+  ge <- svyby(~ing_cor, reformulate(g), d, svygei, epsilon = 0)
+  data.frame(grupo = as.character(m[[1]]), 
+             pct = 100 * coef(svymean(reformulate(g), d)),
+             media = coef(m), 
+             cv_media = 100 * cv(m), 
+             ge0 = coef(ge), 
+             cv_ge0 = 100 * cv(ge))
+}
+
+t3_sub <- lapply(agrup[-1], function(a)              
+    bind_rows(lapply(grupos, sub3, g = a[2]), .id = "anio")) %>%
+  bind_rows(.id = "agrup") %>%
+  pivot_wider(names_from = anio, 
+              values_from = -c(agrup, anio, grupo), 
+              names_vary = "slowest")
+
+cuadro3_2 <- flextable(t3_sub) %>%
+  set_header_labels(values = c(agrup = "Agrupación", 
+                               grupo = "Subgrupo", 
+                               setNames(rep(c("% hogares", 
+                                              "Ingreso medio", 
+                                              "CV (%)", 
+                                              "GE(0)", 
+                                              "CV (%)"), 2),
+                                        names(t3_sub)[-(1:2)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(2, 5, 5)) %>%
+  merge_v(j = "agrup") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 1) %>%
+  colformat_double(j = c("media_2022", "media_2024"), 
+                   digits = 0, 
+                   big.mark = ",") %>%
+  colformat_double(j = c("ge0_2022", "ge0_2024"), digits = 3) %>%
+  semaforo(grep("^cv", names(t3_sub), value = TRUE)) %>%
+  titulo_ft("Cuadro 3.2. Ingreso medio y desigualdad por subgrupo, hogares con 65+, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(paste("Nota: hogares con ingreso corriente > 0. Ingreso corriente trimestral del hogar en pesos de 2018. GE(0) = desviación logarítmica media dentro de cada subgrupo.", 
+                           nota_cv),
+                     fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro3_2
+
+#' 
+#' # 4. Gini, Theil y curva de Lorenz
+#' 
+#' ## Cálculo
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t4-funciones
+#| code-fold: false
+
+desig <- function(d, v = "ing_cor") {
+  f  <- reformulate(v)
+  y  <- d$variables[[v]]
+  dp <- subset(d, y > 0)                    
+  gi <- svygini(f, d)
+  th <- svygei(f, dp, epsilon = 1)
+  g0 <- svygei(f, dp, epsilon = 0)
+  n0 <- sum(weights(d) > 0 & y <= 0)        
+  data.frame(ind  = c("Gini", "Theil T", "GE(0)"),
+             est  = c(coef(gi), coef(th), coef(g0)),
+             se   = as.numeric(c(SE(gi), SE(th), SE(g0))),
+             excl = c(NA, n0, n0)) %>%
+    mutate(cv = 100 * se / est, prec = precision(cv), .after = se)
+}
+
+dominios <- function(d) list(Nacional          = d,
+                             Resto             = subset(d, g65 == 0),
+                             `Hogares con 65+` = subset(d, g65 == 1))
+
+t4_ind <- lapply(disenios, function(d) bind_rows(lapply(dominios(d),
+                                                        desig), 
+                                                 .id = "pob")) %>%
+  bind_rows(.id = "anio")
+
+#' 
+#' ## Cuadro 4.1 Coeficiente de Gini e índice de Theil T
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t4-cuadro
+
+t4_w <- t4_ind %>%
+  pivot_wider(names_from = anio, 
+              values_from = c(est, se, cv, prec, excl), 
+              names_vary = "slowest")
+
+cuadro4_1 <- flextable(t4_w) %>%
+  set_header_labels(values = c(pob = "Hogares", 
+                               ind = "Indicador", 
+                               setNames(rep(c("Estimación", 
+                                              "EE", 
+                                              "CV (%)", 
+                                              "Precisión", 
+                                              "Excluidos (n)"), 2),
+                                        names(t4_w)[-(1:2)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(2, 5, 5)) %>%
+  merge_v(j = "pob") %>%
+  estilo_ft() %>%
+  align(i = 1, align = "center", part = "header") %>%
+  colformat_double(digits = 4) %>%
+  colformat_double(j = c("cv_2022", "cv_2024"), digits = 2) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 4.1. Coeficiente de Gini e índice de Theil T del ingreso corriente del hogar, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    paste("Nota: ingreso corriente total trimestral del hogar, sin ajuste por tamaño. Cada indicador mide la desigualdad dentro de su dominio. Gini con todos los hogares; Theil T y GE(0) solo con hogares de ingreso > 0 (Excluidos = hogares en muestra con ingreso 0). GE(0) = desviación logarítmica media, más sensible a la parte baja de la distribución.", nota_cv),
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro4_1
+
+#' 
+#' ## Gráfica 4.1 Gini y Theil con IC 95%
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t4-grafica1
+graf4_1 <- ggplot(t4_ind, aes(pob, est, colour = anio)) +
+  geom_pointrange(aes(ymin = est - z * se, 
+                      ymax = est + z * se), 
+                  position = position_dodge(.4)) +
+  facet_wrap(~ind, scales = "free_y") +
+  scale_colour_manual(values = pal) +
+  scale_x_discrete(limits = c("Nacional", "Resto", "Hogares con 65+")) +
+  inegi_labs("Gráfica 4.1", "Gini, Theil T y GE(0) del ingreso corriente del hogar por dominio",
+             unidad = "índice",
+             nota = "barras = IC 95%. Que los intervalos se traslapen o no, no equivale a una prueba de diferencia (ver Cuadro 5.1).",
+             x = NULL, y = NULL) +
+  tema
+
+graf4_1
+
+#' 
+#' ## Gráfica 4.2 Curva de Lorenz
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t4-lorenz
+p <- seq(0, 1, .1)
+
+lorenz <- function(d) {
+  l <- svylorenz(~ing_cor, d, quantiles = p, plot = FALSE)
+  data.frame(p, L = as.numeric(coef(l)), se = as.numeric(SE(l)))
+}
+
+lorenz_df <- lapply(disenios, function(d) bind_rows(lapply(dominios(d)[-1], lorenz), .id = "pob")) %>%
+  bind_rows(.id = "anio") %>%
+  mutate(li = L - z * se, ls = L + z * se)
+
+cruce <- lorenz_df %>%
+  filter(p > 0, p < 1) %>%
+  select(anio, pob, p, L) %>%
+  pivot_wider(names_from = pob, values_from = L) %>%
+  group_by(anio) %>%
+  summarise(arriba_65 = sum(`Hogares con 65+` > Resto),
+            abajo_65  = sum(`Hogares con 65+` < Resto),
+            lectura   = case_when(
+              abajo_65 == 0  ~ "la curva de 65+ queda por encima en los 9 puntos (distribución menos desigual)",
+              arriba_65 == 0 ~ "la curva del resto queda por encima en los 9 puntos (65+ más desigual)",
+              TRUE           ~ "las curvas se cruzan; la gráfica no permite ordenar la desigualdad"))
+
+nota_cruce <- paste(sprintf("%s: %s", 
+                            cruce$anio, 
+                            cruce$lectura), 
+                    collapse = "; ")
+
+graf4_2 <- ggplot(lorenz_df, aes(p, L, colour = pob, fill = pob)) +
+  geom_abline(slope = 1, 
+              linetype = "dashed", 
+              colour = inegi_col[["eje"]]) +
+  geom_ribbon(aes(ymin = li, ymax = ls), alpha = .2, colour = NA) +
+  geom_line(linewidth = pt_linea(1.5)) + 
+  geom_point(size = 1) +
+  facet_wrap(~anio) +
+  scale_colour_manual(values = pal_pob, 
+                      aesthetics = c("colour", "fill")) +
+  scale_x_continuous(expand = expansion(0)) + 
+  scale_y_continuous(expand = expansion(0)) +
+  inegi_labs("Gráfica 4.2", "Curva de Lorenz del ingreso corriente del hogar: hogares con 65+ y resto",
+             unidad = "proporción acumulada",
+             nota = paste0("bandas = IC 95%. Hogares ordenados por ingreso corriente total dentro de cada dominio. ",
+                           "Dominancia (estimación puntual en p = 0.1, …, 0.9): ", nota_cruce, "."),
+             x = "Proporción acumulada de hogares", 
+             y = "Proporción acumulada del ingreso") +
+  tema
+
+graf4_2
+
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t4-brechas
+
+qsr <- list(`S80/S20` = c(.2, .8), 
+            `S10/S1` = c(.1, .9), 
+            Palma = c(.4, .9))
+
+brechas <- function(d) bind_rows(lapply(names(qsr), \(k) {
+  r <- svyqsr(~ing_cor, d, alpha1 = qsr[[k]][1], alpha2 = qsr[[k]][2])
+  
+  data.frame(ind = k, est = as.numeric(coef(r)), se = as.numeric(SE(r)))
+})) %>% 
+  mutate(cv = 100 * se / est, prec = precision(cv))
+
+t4_br <- lapply(disenios, 
+                \(d) bind_rows(lapply(dominios(d),brechas), 
+                               .id = "pob")) %>%
+  bind_rows(.id = "anio")
+
+t4_brw <- t4_br %>%
+  pivot_wider(names_from = anio, 
+              values_from = c(est, se, cv, prec), 
+              names_vary = "slowest")
+
+cuadro4_2 <- flextable(t4_brw) %>%
+  set_header_labels(values = c(pob = "Hogares", 
+                               ind = "Razón", 
+                               setNames(rep(
+                                 c("Estimación", 
+                                   "EE", 
+                                   "CV (%)", 
+                                   "Precisión"), 
+                                 2), 
+                                 names(t4_brw)[-(1:2)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(2, 4, 4)) %>%
+  merge_v(j = "pob") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 2) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 4.2. Razones de participación en el ingreso corriente del hogar: S80/S20, S10/S1 y Palma, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    paste("Nota: S80/S20 = ingreso total del 20% de hogares con mayor ingreso entre el del 20% con menor ingreso; S10/S1 = 10% superior / 10% inferior (equivale a cuántos hogares del decil I suman el ingreso de uno del decil X); Palma = 10% superior / 40% inferior. Cuantiles calculados dentro de cada dominio. EE por linealización (convey).", nota_cv),
+    fuente)) %>%
+  pie_ft() %>% autofit()
+cuadro4_2
+
+#' 
+#' 
+#' # 5. Cambios en la desigualdad 2022–2024
+#' 
+#' ## Cálculo
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t5-calculo
+#| code-fold: false
+etq5 <- c(gini       = "Gini",
+          theil      = "Theil T",
+          ge0        = "GE(0)",
+          media      = "Ingreso corriente medio (pesos de 2018)",
+          transfer   = "Peso de transferencias (%)",
+          jubilacion = "Peso de jubilaciones (%)",
+          bene_gob   = "Peso de programas gob. (%)")
+
+# Indicadores de un grupo (65+ o resto) en un año
+
+ind_t5 <- function(g) {
+  x <- list(svygini(~ing_cor, g),
+            svygei(~ing_cor, subset(g, ing_cor > 0), epsilon = 1),
+            svygei(~ing_cor, subset(g, ing_cor > 0), epsilon = 0),
+            svymean(~ing_cor, g),
+            svyratio(~transfer + jubilacion + bene_gob, ~ing_cor, g))
+  data.frame(ind = names(etq5),
+             est = unlist(lapply(x, coef), use.names = FALSE),
+             se  = unlist(lapply(x, \(o) as.numeric(SE(o))))) %>%
+    mutate(across(c(est, se), 
+                  ~ if_else(ind %in% c("transfer",
+                                       "jubilacion",
+                                       "bene_gob"), 
+                            .x * 100, .x)))
+}
+
+# Prueba de diferencia entre años
+
+prueba <- function(df) df %>%
+  pivot_wider(names_from = anio, 
+              values_from = c(est, se), 
+              names_vary = "slowest") %>%
+  mutate(dif = est_2024 - est_2022, 
+         se_dif = sqrt(se_2022^2 + se_2024^2),
+         li = dif - z * se_dif, 
+         ls = dif + z * se_dif,
+         p = 2 * pnorm(-abs(dif / se_dif)), 
+         sig = if_else(p < .05, "Sí", "No"))
+
+pobs5 <- list(`Hogares con 65+` = grupos,
+              Resto             = list(`2022` = subset(d22, g65 == 0),
+                                       `2024` = subset(d24, g65 == 0)))
+
+t5_largo <- lapply(pobs5, \(ds) lapply(ds, ind_t5) %>% 
+                     bind_rows(.id = "anio")) %>%
+  bind_rows(.id = "pob")
+
+t5_dif <- prueba(t5_largo) %>% mutate(ind = etq5[ind])
+
+#' 
+#' ## Cuadro 5.1 Cambio 2022–2024 en desigualdad, ingreso y peso de las transferencias
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t5-cuadro1
+
+num <- c("est_2022", 
+         "se_2022", 
+         "est_2024", 
+         "se_2024", 
+         "dif", 
+         "se_dif", 
+         "li", 
+         "ls")
+
+# Formato común de los cuadros de cambio
+ft_cambio <- function(df) flextable(df) %>%
+  set_header_labels(pob = "Población", 
+                    ind = "Indicador",
+                    est_2022 = "Estimación", 
+                    se_2022 = "EE",
+                    est_2024 = "Estimación", 
+                    se_2024 = "EE",
+                    dif = "Δ", 
+                    se_dif = "EE", 
+                    li = "LI 95%", 
+                    ls = "LS 95%",
+                    p = "p", 
+                    sig = "Signif. 5%") %>%
+  add_header_row(values = c("", "2022", "2024", "Cambio 2024 − 2022"), 
+                 colwidths = c(2, 2, 2, 6)) %>%
+  merge_v(j = "pob") %>%
+  estilo_ft() %>%
+  hline(i = nrow(df) / 2)
+
+cuadro5_1 <- ft_cambio(t5_dif) %>%
+  colformat_double(digits = 2, big.mark = ",") %>%
+  colformat_double(i = ~ ind %in% c("Gini", "Theil T", "GE(0)"),
+                   j = num, digits = 4) %>%
+  colformat_double(j = "p", digits = 3) %>%
+  titulo_ft("Cuadro 5.1. Cambio 2022–2024 en desigualdad, ingreso y peso de las transferencias: hogares con 65+ y resto de los hogares") %>%
+  add_footer_lines(c(
+    "Nota: ingreso corriente trimestral del hogar en pesos de 2018. Peso = Σ fuente / Σ ing_cor × 100 (razón de totales, no promedio de proporciones por hogar). Theil T y GE(0) excluyen hogares con ingreso 0. EE de la diferencia = √(EE²₂₀₂₂ + EE²₂₀₂₄), bajo el supuesto de muestras independientes; IC 95% con aproximación normal. Varias pruebas sin corrección por comparaciones múltiples.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro5_1
+
+#' 
+#' ## Gráfica 5.1 Indicadores de hogares
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t5-grafica
+
+graf5_1 <- t5_largo %>%
+  mutate(ind = factor(etq5[ind], etq5)) %>%
+  ggplot(aes(pob, est, color = anio)) +
+  geom_pointrange(aes(ymin = est - z * se, 
+                      ymax = est + z * se),
+                  position = position_dodge(width = .4)) +
+  facet_wrap(~ind, scales = "free_y", labeller = label_wrap_gen(25)) +
+  scale_color_manual(values = pal) +
+  inegi_labs("Gráfica 5.1", "Indicadores de los hogares con 65+ y del resto de los hogares",
+             nota = "barras = IC 95%. Que los IC se traslapen no implica que el cambio no sea significativo; ver Cuadro 5.1.",
+             x = NULL, 
+             y = NULL) +
+  tema
+
+graf5_1
+
+#' 
+#' ## Cuadro 5.2 Efecto de los valores extremos
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t5-sensibilidad
+
+# Gini sin el hogar de mayor ingreso de cada población y año; Theil sin ceros.
+t5_sens <- lapply(c(`Hogares con 65+` = 1, Resto = 0), 
+                  \(k)
+                  lapply(disenios, \(d) {
+    tope <- max(d$variables$ing_cor[d$variables$g65 == k])
+    desig(subset(d, g65 == k & ing_cor < tope))
+  }) %>% bind_rows(.id = "anio")) %>%
+  bind_rows(.id = "pob") %>%
+  select(pob, anio, ind, est, se) %>%
+  prueba()
+
+cuadro5_2 <- ft_cambio(t5_sens) %>%
+  colformat_double(digits = 4) %>%
+  colformat_double(j = "p", digits = 3) %>%
+  titulo_ft("Cuadro 5.2. Sensibilidad del cambio 2022–2024 en Gini y Theil T a valores extremos: hogares con 65+ y resto de los hogares") %>%
+  add_footer_lines(c(
+    "Nota: se excluye, en cada población y año, el hogar con mayor ingreso corriente. Mismo procedimiento de prueba que el Cuadro 5.1. Análisis de robustez; las estimaciones principales son las del Cuadro 5.1.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+cuadro5_2
+
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t5-brechas
+t5_br <- t4_br %>%
+  filter(pob != "Nacional") %>%
+  arrange(factor(pob, c("Hogares con 65+", "Resto"))) %>%
+  select(pob, anio, ind, est, se) %>%
+  prueba()
+
+cuadro5_3 <- ft_cambio(t5_br) %>%
+  colformat_double(digits = 2) %>%
+  colformat_double(j = "p", digits = 3) %>%
+  titulo_ft("Cuadro 5.3. Cambio 2022–2024 en las razones de participación: hogares con 65+ y resto de los hogares") %>%
+  add_footer_lines(c(
+    "Nota: definiciones en el Cuadro 4.2. EE de la diferencia = √(EE²₂₀₂₂ + EE²₂₀₂₄), muestras independientes; IC 95% con aproximación normal. Varias pruebas sin corrección por comparaciones múltiples.",
+    fuente)) %>%
+  pie_ft() %>% 
+  autofit()
+
+cuadro5_3
+
+#' 
+#' 
+#' # 6. ¿Qué pasa sin `bene_gob`?
+#' ## 6.1 Reducen: desigualdad con y sin cada fuente
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-reducen
+
+esc <- c(Observado = "ing_cor",
+         `Sin programas gob.` = "ing_sin_bene",
+         `Sin jubilación` = "ing_sin_jub",
+         `Sin transferencias` = "ing_sin_trans")
+
+dec <- c(Observado = "decil",
+         setNames(paste0("decil_", esc[-1]), names(esc)[-1]))
+
+t6_des <- lapply(disenios, function(d)
+  bind_rows(lapply(dominios(d)[c("Hogares con 65+", "Nacional")], \(x)
+    bind_rows(lapply(esc, desig, d = x), .id = "escenario")), 
+    .id = "pob")) %>%
+  bind_rows(.id = "anio") %>%
+  group_by(anio, pob, ind) %>%
+  mutate(dif     = est - est[escenario == "Observado"],
+         dif_pct = 100 * dif / est[escenario == "Observado"],
+         across(c(dif, dif_pct), ~ if_else(escenario == "Observado",
+                                           NA_real_, .x))) %>%
+  ungroup() %>%
+  mutate(escenario = factor(escenario, names(esc)))
+
+excl_t6 <- with(filter(t6_des, 
+                       pob == "Hogares con 65+", 
+                       ind == "Theil T",
+                       escenario == "Sin transferencias"), setNames(excl, anio))
+
+#' 
+#' ### Cuadro 6.1 Gini y Theil T del ingreso corriente del hogar con y sin cada transferencia
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-cuadro6_1
+c6_1 <- t6_des %>%
+  select(pob, ind, escenario, anio, est, cv, dif, dif_pct) %>%
+  pivot_wider(names_from = anio, values_from = c(est, cv, dif, dif_pct),
+              names_vary = "slowest") %>%
+  arrange(pob, ind, escenario)
+
+cuadro6_1 <- flextable(c6_1) %>%
+  set_header_labels(values = c(pob = "Hogares", 
+                               ind = "Índice", 
+                               escenario = "Escenario",
+                               setNames(rep(c("Estimación", 
+                                              "CV (%)", 
+                                              "Δ", 
+                                              "Δ (%)"), 
+                                            2), 
+                                        names(c6_1)[-(1:3)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(3, 4, 4)) %>%
+  merge_v(j = c("pob", "ind")) %>%
+  estilo_ft() %>%
+  colformat_double(digits = 4) %>%
+  colformat_double(j = grep("^(cv|dif_pct)", 
+                            names(c6_1), 
+                            value = TRUE), 
+                   digits = 1) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 6.1. Gini y Theil T del ingreso corriente del hogar con y sin cada transferencia, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(sprintf(paste(
+    "Nota: escenarios contables (ingreso corriente menos la fuente; sin respuesta conductual).",
+    "Δ = índice sin la fuente − índice observado; Δ > 0 indica que la fuente reduce la desigualdad.",
+    "Δ sin error estándar: los escenarios comparten hogares (no son muestras independientes).",
+    "Theil T y GE(0) solo con ingreso > 0; sin transferencias se excluyen %d (2022) y %d (2024) hogares del grupo en muestra.",
+    "Programas gob. = bene_gob (incluye programas no dirigidos a adultos mayores)."), excl_t6[["2022"]], excl_t6[["2024"]]), fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro6_1
+
+#' 
+#' ### Gráfica 6.1 Cambio en la desigualdad al quitar cada transferencia
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-grafica6_1
+g_t6a <- t6_des %>% filter(escenario != "Observado") %>%
+  ggplot(aes(escenario, dif_pct, fill = anio)) +
+  geom_col(position = dodge, width = ancho_barra) +
+  geom_hline(yintercept = 0, 
+             colour = inegi_col[["umbral"]], 
+             linewidth = pt_linea(1.5)) +
+  facet_grid(pob ~ ind) + 
+  coord_flip() +
+  scale_fill_manual(values = pal) +
+  inegi_labs("Gráfica 6.1", "Cambio en la desigualdad al quitar cada transferencia",
+             unidad = "cambio porcentual respecto al índice observado",
+             nota = "valores positivos: la fuente reduce la desigualdad. Escenarios contables, sin respuesta conductual.",
+             x = NULL, 
+             y = NULL) +
+  tema_h
+
+g_t6a
+
+#' 
+#' ## 6.2 Sostienen: peso de las transferencias por tramo
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-sostienen
+f_t6  <- c("transfer", "jubilacion", "bene_gob", "otras")
+
+etq_f <- c(transfer = "Transferencias (total)", 
+           jubilacion = "Jubilaciones",
+           bene_gob = "Programas gob.", 
+           otras = "Otras transferencias")
+
+# Razón de totales Σ fuente / Σ ing_cor (%) por nivel de `by`
+peso <- function(g, by) {
+  r <- svyby(reformulate(f_t6), by, g, svyratio, denominator = ~ing_cor)
+  data.frame(nivel = rep(as.character(r[[1]]), length(f_t6)),
+             fuente = rep(f_t6, each = nrow(r)),
+             est = 100 * coef(r), se = 100 * unlist(SE(r)), 
+             row.names = NULL)
+}
+
+t6_peso <- lapply(list(`2022` = g22, `2024` = g24), \(g)
+  bind_rows(tramo = peso(g, ~tramo), 
+            decil = peso(g, ~decil), 
+            .id = "tipo")) %>%
+  bind_rows(.id = "anio")
+
+# Cambio 2022–2024 del peso por tramo 
+c6_2 <- t6_peso %>% filter(tipo == "tramo") %>%
+  select(nivel, fuente, anio, est, se) %>%
+  prueba() %>%
+  mutate(nivel = factor(nivel, levels(base24$tramo)),
+         cv_2022 = 100 * se_2022 / est_2022, 
+         cv_2024 = 100 * se_2024 / est_2024,
+         fuente = factor(etq_f[fuente], etq_f)) %>%
+  arrange(nivel, fuente) %>%
+  select(nivel, fuente, est_2022, cv_2022, est_2024, cv_2024, dif, li, ls, p, sig)
+
+#' 
+#' ### Cuadro 6.2 Peso de las transferencias en el ingreso corriente de los hogares con 65+
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-cuadro6_2
+cuadro6_2 <- flextable(c6_2) %>%
+  set_header_labels(nivel = "Deciles", fuente = "Fuente",
+                    est_2022 = "% del ingreso", cv_2022 = "CV (%)",
+                    est_2024 = "% del ingreso", cv_2024 = "CV (%)",
+                    dif = "Δ (pp)", li = "LI 95%", ls = "LS 95%", p = "p", sig = "Signif. 5%") %>%
+  add_header_row(values = c("", "2022", "2024", "Cambio 2024 − 2022"), colwidths = c(2, 2, 2, 5)) %>%
+  merge_v(j = "nivel") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 1) %>%
+  colformat_double(j = "p", digits = 3) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 6.2. Peso de las transferencias en el ingreso corriente de los hogares con 65+, por tramo de deciles nacionales, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Nota: peso = Σ fuente / Σ ingreso corriente × 100 (razón de totales, no promedio de proporciones por hogar). Deciles nacionales de ingreso corriente del hogar, después de transferencias. Otras = becas, donativos, remesas y transferencias en especie (por confirmar). EE de la diferencia = √(EE²₂₀₂₂ + EE²₂₀₂₄), muestras independientes. Varias pruebas sin corrección por comparaciones múltiples.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro6_2
+
+#' 
+#' ### Gráfica 6.2 Peso de las transferencias en el ingreso de los hogares con 65+
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-grafica6_2
+g_t6b <- t6_peso %>% 
+  filter(tipo == "decil", fuente != "transfer") %>%
+  mutate(fuente = factor(etq_f[fuente], etq_f[-1])) %>%
+  ggplot(aes(factor(as.integer(nivel)), est, fill = fuente)) +
+  annotate("rect", 
+           xmin = .5, 
+           xmax = 3.5, 
+           ymin = -Inf, 
+           ymax = Inf, 
+           alpha = .15, 
+           fill = inegi_col[["referencia"]]) +
+  geom_col(width = ancho_barra) + 
+  facet_wrap(~anio) +
+  scale_x_discrete(labels = as.roman(1:10)) +
+  scale_y_continuous(expand = expansion(mult = c(0, .08))) +
+  scale_fill_manual(values = pal_fuente) +
+  inegi_labs("Gráfica 6.2", "Peso de las transferencias en el ingreso de los hogares con 65+, por decil nacional",
+             unidad = "porcentaje del ingreso corriente del decil",
+             nota = "área sombreada: deciles I–III. Las tres fuentes suman el peso total de las transferencias.",
+             x = "Decil nacional de ingreso corriente del hogar", 
+             y = NULL) +
+  tema
+
+g_t6b
+
+#' 
+#' ## 6.3 Movilidad entre deciles
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-movilidad
+
+# % del grupo en deciles I–III y % que baja de decil, por escenario
+mov <- function(g) bind_rows(lapply(dec, \(dv)
+  fila(svymean(reformulate(c(sprintf("I(100 * (%s <= 3))", dv),
+                             sprintf("I(100 * (%s < decil))", dv))), g)) %>%
+    mutate(ind = c("En deciles I–III", "Baja de decil"))), 
+  .id = "escenario")
+
+t6_mov <- lapply(list(`2022` = g22, `2024` = g24), mov) %>%
+  bind_rows(.id = "anio") %>%                                  
+  mutate(prec = precision(cv), 
+         escenario = factor(escenario, names(esc)))
+
+# Matriz de transición (filas = decil observado; % de la fila)
+trans <- function(g, dv) as.data.frame(prop.table(svytable(reformulate(c("decil", dv)), g), 1)) %>%
+  setNames(c("orig", "esc", "p"))
+
+t6_trans <- lapply(list(`2022` = g22, `2024` = g24), \(g)
+  bind_rows(lapply(dec[-1], trans, g = g), .id = "escenario")) %>%   
+  bind_rows(.id = "anio")
+
+#' 
+#' ### Cuadro 6.3 Cambios en los hogares con 65+ en deciles I–III
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-cuadro6_3
+
+c6_3 <- t6_mov %>%
+     filter(!(escenario == "Observado" & ind == "Baja de decil")) %>%
+     select(escenario, ind, anio, est, se, cv, prec) %>%
+     pivot_wider(names_from = anio, 
+                 values_from = c(est, se, cv, prec),
+                 names_vary = "slowest") %>%
+     arrange(desc(ind), escenario)
+
+cuadro6_3 <- flextable(c6_3) %>%
+  set_header_labels(values = c(escenario = "Escenario", 
+                               ind = "Indicador", 
+                               setNames(
+    rep(c("%", "EE", "CV (%)", "Precisión"), 2), names(c6_3)[-(1:2)]))) %>%
+  add_header_row(values = c("", "2022", "2024"), 
+                 colwidths = c(2, 4, 4)) %>%
+  merge_v(j = "ind") %>%
+  estilo_ft() %>%
+  colformat_double(digits = 1) %>%
+  semaforo(c("cv_2022", "cv_2024")) %>%
+  titulo_ft("Cuadro 6.3. Hogares con 65+ en deciles I–III y que bajan de decil al quitar cada transferencia, ENIGH 2022 y 2024") %>%
+  add_footer_lines(c(
+    "Nota: deciles recalculados en cada escenario con todos los hogares del país (todos pierden la fuente). Un hogar puede subir de decil si otros hogares pierden más ingreso que él. El escenario observado coincide con el Cuadro 2.3.",
+    fuente)) %>%
+  pie_ft() %>%
+  autofit()
+
+cuadro6_3
+
+#' 
+#' ### Gráfica 6.3
+#' 
+## --------------------------------------------------------------------------------------------
+#| label: t6-grafica6_3
+
+g_t6c <- t6_trans %>% 
+  filter(anio == "2024") %>%
+  mutate(escenario = factor(escenario, names(esc))) %>%
+  ggplot(aes(esc, orig, fill = 100 * p)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = if_else(!is.na(p) & p >= .005,
+                                as.character(round(100 * p)), ""),
+                colour = !is.na(p) & p >= .5), 
+            size = 2.5, 
+            show.legend = FALSE) +
+  scale_colour_manual(values = c(`FALSE` = "black", `TRUE` = "white")) +
+  facet_wrap(~escenario, ncol = 3) +
+  scale_fill_gradient(low = "white", 
+                      high = "#215649", 
+                      name = "% de la fila") +
+  scale_x_discrete(labels = as.roman(1:10)) + 
+  scale_y_discrete(labels = as.roman(1:10)) +
+  inegi_labs("Gráfica 6.3", "Movimiento de los hogares con 65+ entre deciles al quitar cada fuente",
+             periodo = "2024", 
+             unidad = "porcentaje de la fila",
+             nota = "cada fila suma 100%. Celdas a la izquierda de la diagonal = hogares que bajan de decil. Estimación puntual, sin EE.",
+             x = "Decil nacional sin la fuente", 
+             y = "Decil nacional observado") +
+  tema + 
+  theme(legend.position = "right", 
+        panel.grid.major = element_blank(),
+        legend.title = element_text(size = 8, 
+                                    colour = inegi_col[["secundario"]]))
+
+g_t6c
+
+#' 
+#' # Declaración de uso de IA
+#' 
+#' Se utilizó Claude (Anthropic) como apoyo para estructurar el plan de trabajo, revisar y simplificar el código, además de soporte en casos de errores en RStudio. Las decisiones metodológicas, el planteamiento inicial del código, su ejecución con las bases reales, la validación de resultados, el análisis e interpretación quedaron a cargo del equipo. Para mayor detalle, revise el documento de declaración de uso de IA.  
+#' 
